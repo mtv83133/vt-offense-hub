@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VT Football | Scouting Hub</title>
+<style>
+:root {
+  --maroon: #861F41; --maroon-dark: #3D0A1E; --orange: #E5751F;
+  --navy: #1B1B2F; --card: #242438; --card2: #2D2D45;
+  --border: #3A3A58; --text: #FFFFFF; --dim: #AAA8C2; --muted: #666485;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--navy);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
+.hdr{background:linear-gradient(135deg,var(--maroon-dark) 0%,var(--maroon) 100%);border-bottom:3px solid var(--orange);padding:20px 24px;box-shadow:0 4px 24px rgba(0,0,0,0.7);}
+.hdr-inner{display:flex;align-items:center;gap:16px;max-width:1100px;margin:0 auto;}
+.vt-logo{background:var(--orange);color:var(--maroon-dark);font-size:26px;font-weight:900;width:54px;height:54px;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0;border:2px solid rgba(255,255,255,0.2);}
+.hdr-title h1{font-size:20px;font-weight:800;letter-spacing:.5px;}
+.hdr-title p{font-size:11px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1.5px;margin-top:3px;}
+main{flex:1;max-width:1100px;margin:0 auto;padding:48px 24px;width:100%;}
+.intro{text-align:center;margin-bottom:40px;}
+.intro h2{font-size:22px;font-weight:800;margin-bottom:8px;}
+.intro p{color:var(--dim);font-size:13px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+@media (max-width:720px){.cards{grid-template-columns:1fr;}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:32px;text-decoration:none;color:var(--text);display:block;transition:transform .15s, border-color .15s;border-top:4px solid var(--border);}
+.card:hover{transform:translateY(-3px);border-top-color:var(--orange);}
+.card-icon{font-size:34px;margin-bottom:14px;}
+.card h3{font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;}
+.card p{font-size:12px;color:var(--dim);line-height:1.7;margin-bottom:16px;}
+.card-meta{display:flex;gap:8px;flex-wrap:wrap;}
+.hp{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:4px 12px;font-size:10px;color:rgba(255,255,255,.65);}
+.card-cta{margin-top:18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--orange);}
+footer{text-align:center;padding:20px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hdr-inner">
+    <div class="vt-logo">VT</div>
+    <div class="hdr-title">
+      <h1>VT FOOTBALL SCOUTING HUB</h1>
+      <p>Self Scout &nbsp;·&nbsp; Advance Scout &nbsp;·&nbsp; One Home For All Reports</p>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="intro">
+    <h2>Pick a dashboard</h2>
+    <p>Updated after every practice and for every opponent. Bookmark this page — both dashboards live here.</p>
+  </div>
+
+  <div class="cards">
+    <a class="card" href="self-scout.html" style="border-top-color:var(--orange);">
+      <div class="card-icon">🏈</div>
+      <h3>Self Scout</h3>
+      <p>Our offensive tendencies — formations, personnel, lineup combos, run/pass efficiency by period and practice.</p>
+      <div class="card-meta">
+        <div class="hp">Spring 2026</div>
+        <div class="hp">Updated After Every Practice</div>
+      </div>
+      <div class="card-cta">Open Dashboard →</div>
+    </a>
+
+    <a class="card" href="advance-scout.html" style="border-top-color:var(--maroon);">
+      <div class="card-icon">🛡️</div>
+      <h3>Advance Scout</h3>
+      <p>Opponent defensive tendencies — fronts, coverage, blitz, red zone & goal line. Save and switch between opponent reports.</p>
+      <div class="card-meta">
+        <div class="hp">Per Opponent</div>
+        <div class="hp">Saved Reports</div>
+      </div>
+      <div class="card-cta">Open Dashboard →</div>
+    </a>
+  </div>
+</main>
+
+<footer>VT Football &nbsp;·&nbsp; Internal Use Only</footer>
+
+</body>
+</html>

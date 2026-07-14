@@ -1,0 +1,1884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VT Advance Scout — Defense</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --m:#75162A;--o:#E87722;--bg:#EFEFEF;--card:#fff;--txt:#1a1a1a;--muted:#6b7280;
+  --bdr:#e5e7eb;--good:#166534;--goodbg:#dcfce7;--warn:#92400e;--warnbg:#fef3c7;
+  --bad:#991b1b;--badbg:#fee2e2;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--txt);display:flex;min-height:100vh;font-size:14px}
+/* SIDEBAR */
+#sb{width:210px;min-width:210px;background:var(--m);position:fixed;top:0;left:0;height:100vh;overflow-y:auto;z-index:100;display:flex;flex-direction:column}
+.sb-logo{padding:18px 14px 14px;border-bottom:1px solid rgba(255,255,255,.15)}
+.sb-team{color:var(--o);font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
+.sb-sub{color:rgba(255,255,255,.5);font-size:10px;margin-top:2px}
+.sb-sec{padding:12px 14px 3px;font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35)}
+.nav{display:block;padding:9px 14px;color:rgba(255,255,255,.75);text-decoration:none;font-size:12.5px;font-weight:500;cursor:pointer;border-left:3px solid transparent;transition:all .1s}
+.nav:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav.on{background:rgba(232,119,34,.2);color:var(--o);border-left-color:var(--o);font-weight:700}
+.nav.sub{padding-left:26px;font-size:12px}
+/* MAIN */
+#main{margin-left:210px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+/* TOP BAR */
+#tbar{background:var(--card);border-bottom:1px solid var(--bdr);padding:10px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.tbar-opp{flex:1}
+.tbar-name{font-size:20px;font-weight:900;color:var(--m);line-height:1}
+.tbar-info{font-size:11px;color:var(--muted);margin-top:2px}
+.btn{padding:7px 14px;border-radius:6px;border:none;cursor:pointer;font-size:12px;font-weight:700;transition:all .12s;letter-spacing:.3px}
+.btn-m{background:var(--m);color:#fff}.btn-m:hover{background:#5c1221}
+.btn-o{background:var(--o);color:#fff}.btn-o:hover{background:#cc6b1d}
+.btn-out{background:transparent;color:var(--m);border:2px solid var(--m)}.btn-out:hover{background:var(--m);color:#fff}
+/* CONTENT */
+#content{padding:20px 22px;flex:1}
+/* SECTIONS */
+.sec{display:none}.sec.on{display:block}
+/* CARD */
+.card{background:var(--card);border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card-hd{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin-bottom:10px}
+/* SECTION HEADER */
+.sec-hd{margin-bottom:18px}
+.sec-title{font-size:18px;font-weight:900;color:var(--m);text-transform:uppercase;letter-spacing:.5px}
+.sec-line{height:3px;background:linear-gradient(90deg,var(--m),var(--o));margin:4px 0 14px;border-radius:2px;width:60px}
+/* GRIDS */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.g7{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
+/* STAT CARDS */
+.scard{background:var(--card);border-radius:10px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08);border-left:4px solid var(--bdr)}
+.scard.good{border-left-color:var(--good)}.scard.bad{border-left-color:var(--bad)}.scard.warn{border-left-color:var(--warn)}
+.sl{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.sv{font-size:20px;font-weight:900;margin:3px 0}
+.sr{display:flex;gap:6px;flex-wrap:wrap}
+.rb{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700}
+.rb.c{background:#f3f4f6;color:var(--muted)}
+.rb.ng{background:var(--goodbg);color:var(--good)}.rb.nb{background:var(--badbg);color:var(--bad)}.rb.nw{background:var(--warnbg);color:var(--warn)}
+/* FAST FACTS */
+.ff{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--bdr)}
+.ff:last-child{border-bottom:none}
+.ff-dot{width:22px;height:22px;border-radius:50%;background:var(--m);color:var(--o);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;flex-shrink:0;margin-top:1px}
+.ff-text{font-size:12.5px;line-height:1.55}
+.hl{color:var(--o);font-weight:700}.hlg{color:var(--good);font-weight:700}.hlb{color:var(--bad);font-weight:700}
+/* EXPLOIT */
+.exploit{background:linear-gradient(135deg,#0f2d0f,#1a4a1a);color:#fff;border-radius:10px;padding:18px}
+.exploit-hd{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#86efac;margin-bottom:12px}
+.ex-item{display:flex;gap:8px;align-items:flex-start;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.ex-item:last-child{border-bottom:none}
+.ex-arr{color:#86efac;font-weight:900;font-size:14px;flex-shrink:0}
+.ex-txt{font-size:12.5px;line-height:1.4}
+.ex-txt strong{color:#fde68a}
+/* TABLES */
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{background:var(--m);color:#fff;padding:8px 11px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+.tbl td{padding:8px 11px;border-bottom:1px solid var(--bdr)}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:nth-child(even) td{background:#fafafa}
+.tbl tr:hover td{background:#f5f5f5}
+.tbl td.b{font-weight:700}.tbl td.c{text-align:center}.tbl td.r{text-align:right}
+/* SUB TABS */
+.stabs{display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--bdr)}
+.stab{padding:9px 18px;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .1s}
+.stab:hover{color:var(--m)}.stab.on{color:var(--m);border-bottom-color:var(--o);font-weight:800}
+.stcon{display:none}.stcon.on{display:block}
+/* PRESSURE CARDS */
+.pcard{background:var(--card);border-radius:10px;padding:16px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.ppct{font-size:32px;font-weight:900;line-height:1}
+.plbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-top:4px}
+.pcnt{font-size:11px;color:var(--muted);margin-top:2px}
+.pcard.int .ppct{color:var(--bad)}.pcard.fld .ppct{color:var(--m)}.pcard.bnd .ppct{color:var(--warn)}.pcard.dbl .ppct{color:var(--o)}
+/* ZONE CARDS */
+.zcard{border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.zcard.outer{background:#fff7ed;border:2px solid var(--o)}
+.zcard.inner{background:#fef2f2;border:2px solid #dc2626}
+.zcard.score{background:#fef2f2;border:2px solid #7f1d1d}
+.zcard.gl{background:var(--m);color:#fff}
+.zhd{font-size:13px;font-weight:900;text-transform:uppercase;margin-bottom:10px}
+.zcard.outer .zhd{color:var(--m)}.zcard.inner .zhd{color:#dc2626}.zcard.score .zhd{color:#7f1d1d}.zcard.gl .zhd{color:var(--o)}
+/* DEPTH CHART */
+.dc-row{display:flex;gap:10px;margin-bottom:14px}
+.dc-pos{flex:1;min-width:0}
+.dc-lbl{background:var(--m);color:#fff;font-size:10px;font-weight:800;text-align:center;padding:4px;border-radius:4px;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.dc-player{background:#f9f9f9;border:1px solid var(--bdr);border-radius:6px;padding:7px 8px;margin-bottom:5px;font-size:11px;line-height:1.3}
+.dc-player.s{border-left:3px solid var(--o)}
+.dc-num{font-weight:900;color:var(--m);font-size:12px}
+.dc-name{font-weight:700}
+.dc-info{color:var(--muted);font-size:10px}
+/* CAREER TIMELINE */
+.ct-item{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--bdr);align-items:center;font-size:12.5px}
+.ct-yr{min-width:80px;font-weight:800;color:var(--m)}
+.ct-school{font-weight:600;flex:1}
+.ct-role{color:var(--muted);font-size:11px}
+.badge{padding:2px 8px;border-radius:10px;font-size:9px;font-weight:800;text-transform:uppercase}
+.badge.nfl{background:#1e3a8a;color:#fff}.badge.col{background:var(--m);color:#fff}
+/* RUN EFF BARS */
+.ebar{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.ebar-lbl{min-width:90px;font-size:12px;font-weight:700}
+.ebar-track{flex:1;background:#f0f0f0;border-radius:4px;height:18px;overflow:hidden}
+.ebar-fill{height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;border-radius:4px}
+.ebar-fill span{font-size:10px;font-weight:800;color:#fff}
+.ebar-ct{min-width:55px;text-align:right;font-size:11px;color:var(--muted)}
+/* CALLOUT */
+.callout{padding:11px 14px;border-radius:8px;font-size:12.5px;line-height:1.5;margin-bottom:14px}
+.callout.info{background:#eff6ff;border-left:4px solid #3b82f6}
+.callout.warn{background:var(--warnbg);border-left:4px solid var(--o)}
+.callout.danger{background:var(--badbg);border-left:4px solid var(--bad)}
+.callout.success{background:var(--goodbg);border-left:4px solid var(--good)}
+/* CHART */
+.ch{position:relative;height:220px}
+.ch-lg{position:relative;height:300px}
+.ch-sm{position:relative;height:160px}
+/* UTIL */
+.mt8{margin-top:8px}.mt14{margin-top:14px}.mt20{margin-top:20px}
+.mb8{margin-bottom:8px}.mb14{margin-bottom:14px}
+.flex{display:flex}.gap10{gap:10px}.gap14{gap:14px}
+.txt-sm{font-size:11.5px}.txt-xs{font-size:11px}.txt-muted{color:var(--muted)}
+.fw7{font-weight:700}.fw9{font-weight:900}
+/* SAVED REPORTS SIDEBAR */
+.sb-save-btn{display:block;margin:10px 12px 4px;padding:8px 12px;background:rgba(232,119,34,.25);color:var(--o);font-size:12px;font-weight:800;border:1px solid rgba(232,119,34,.4);border-radius:6px;cursor:pointer;text-align:center;transition:all .12s;letter-spacing:.3px}
+.sb-save-btn:hover{background:rgba(232,119,34,.4);color:#fff}
+.saved-report-item{display:flex;align-items:center;gap:6px;padding:8px 14px 8px 10px;cursor:pointer;border-left:3px solid transparent;transition:all .1s}
+.saved-report-item:hover{background:rgba(255,255,255,.07);border-left-color:rgba(255,255,255,.25)}
+.saved-report-item.active-report{background:rgba(232,119,34,.15);border-left-color:var(--o)}
+.sr-icon{font-size:13px;flex-shrink:0}
+.sr-info{flex:1;min-width:0}
+.sr-name{font-size:12px;font-weight:700;color:rgba(255,255,255,.85);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sr-date{font-size:10px;color:rgba(255,255,255,.38);margin-top:1px}
+.sr-del{color:rgba(255,255,255,.25);font-size:18px;font-weight:900;line-height:1;cursor:pointer;flex-shrink:0;padding:0 3px;transition:color .1s}
+.sr-del:hover{color:#ff6b6b}
+.sr-empty{padding:8px 14px;font-size:11px;color:rgba(255,255,255,.3);font-style:italic}
+/* SHARE MODAL */
+.share-option{display:flex;align-items:center;gap:14px;padding:14px;border:2px solid var(--bdr);border-radius:8px;cursor:pointer;transition:all .12s;margin-bottom:10px}
+.share-option:hover{border-color:var(--m);background:#f9f9f9}
+.share-icon{font-size:28px;flex-shrink:0}
+.share-title{font-size:14px;font-weight:800;color:var(--m)}
+.share-desc{font-size:12px;color:var(--muted);margin-top:2px}
+/* ACTIVE REPORT BADGE in top bar */
+.active-badge{background:var(--goodbg);color:var(--good);font-size:10px;font-weight:800;padding:2px 8px;border-radius:10px;margin-left:8px;vertical-align:middle}
+/* FILE DROP */
+.fdrop{border:2px dashed var(--bdr);border-radius:8px;padding:18px;text-align:center;cursor:pointer;background:#fafafa;transition:all .12s}
+.fdrop:hover,.fdrop.drag{border-color:var(--o);background:#fff8f3}
+.fdrop input{display:none}
+/* MODAL */
+#modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
+#modal.show{display:flex}
+.modal{background:#fff;border-radius:12px;padding:28px;max-width:520px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-title{font-size:17px;font-weight:900;color:var(--m);margin-bottom:6px}
+.modal-sub{font-size:12.5px;color:var(--muted);margin-bottom:18px}
+/* PRINT LABEL (hidden on screen, shown in print) */
+.print-label{display:none;font-size:13px;font-weight:900;color:var(--m);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;padding-bottom:6px;border-bottom:2px solid var(--o)}
+/* PRINT */
+@page{margin:.55in .5in .55in .5in;size:letter portrait}
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important}
+  body{background:#fff!important;font-size:11.5px!important;display:block!important}
+  #sb,#modal{display:none!important}
+  #main{margin-left:0!important;display:block!important}
+  #tbar{position:static!important;box-shadow:none!important;border-bottom:2px solid var(--m)!important;padding:8px 16px!important}
+  #tbar button,#tbar .btn{display:none!important}
+  .tbar-name{font-size:18px!important}
+  /* ALL SECTIONS VISIBLE — each starts on its own page, never bleeds over */
+  .sec{display:block!important;page-break-before:always;break-before:page;page-break-inside:avoid;break-inside:avoid}
+  .sec:first-of-type{page-break-before:avoid;break-before:avoid}
+  .sec-hd{page-break-after:avoid;break-after:avoid}
+  /* SUB-TABS: hide tab buttons, show all content */
+  .stabs{display:none!important}
+  .stcon{display:block!important}
+  /* Each sub-tab group also starts fresh — no bleeding between them */
+  .stcon+.stcon{border-top:2px solid var(--bdr)!important;margin-top:16px!important;padding-top:14px!important;page-break-before:always;break-before:page}
+  .print-label{display:block!important}
+  /* CARDS — never break mid-card */
+  .card,.scard{box-shadow:none!important;border:1px solid #d1d5db!important;break-inside:avoid;page-break-inside:avoid}
+  .zcard{box-shadow:none!important;break-inside:avoid}
+  /* Grids don't break mid-row */
+  .g2,.g3,.g4,.g7{break-inside:avoid;page-break-inside:avoid}
+  /* Tables don't break mid-row */
+  .tbl tr{break-inside:avoid;page-break-inside:avoid}
+  .exploit{background:#0f2d0f!important;color:#fff!important;break-inside:avoid}
+  .exploit *{color:inherit}
+  .exploit .exploit-hd{color:#86efac!important}
+  .exploit .ex-arr{color:#86efac!important}
+  .zcard.gl{background:var(--m)!important;color:#fff!important}
+  .zcard.gl *{color:#fff}
+  .zcard.gl .zhd{color:var(--o)!important}
+  /* TABLE COLORS PRESERVED */
+  .tbl th{background:var(--m)!important;color:#fff!important;-webkit-print-color-adjust:exact!important}
+  .tbl tr:nth-child(even) td{background:#f9fafb!important}
+  .tbl{break-inside:avoid;font-size:11px!important}
+  /* PCARD COLORS */
+  .pcard.int .ppct{color:var(--bad)!important}
+  .pcard.fld .ppct{color:var(--m)!important}
+  .pcard.bnd .ppct{color:var(--warn)!important}
+  .pcard.dbl .ppct{color:var(--o)!important}
+  /* RANK BADGES */
+  .rb.ng{background:var(--goodbg)!important;color:var(--good)!important}
+  .rb.nb{background:var(--badbg)!important;color:var(--bad)!important}
+  .rb.nw{background:var(--warnbg)!important;color:var(--warn)!important}
+  /* CALLOUTS */
+  .callout{border-left:4px solid currentColor!important}
+  .callout.danger{background:var(--badbg)!important;border-color:var(--bad)!important}
+  .callout.warn{background:var(--warnbg)!important;border-color:var(--o)!important}
+  .callout.info{background:#eff6ff!important;border-color:#3b82f6!important}
+  .callout.success{background:var(--goodbg)!important;border-color:var(--good)!important}
+  /* STAT BORDER COLORS */
+  .scard.good{border-left:4px solid var(--good)!important}
+  .scard.bad{border-left:4px solid var(--bad)!important}
+  .scard.warn{border-left:4px solid var(--warn)!important}
+  /* GRID REFLOW FOR LETTER PAPER */
+  .g7{grid-template-columns:repeat(4,1fr)!important;gap:8px!important}
+  .g4{grid-template-columns:repeat(2,1fr)!important}
+  .g3{grid-template-columns:1fr 1fr 1fr!important}
+  .g2{grid-template-columns:1fr 1fr!important}
+  /* CHART HEIGHTS */
+  .ch{height:160px!important}
+  .ch-lg{height:190px!important}
+  .ch-sm{height:140px!important}
+  /* MARGINS */
+  .mt20{margin-top:12px!important}
+  .mt14{margin-top:10px!important}
+  .mb14{margin-bottom:10px!important}
+  /* DC CAREER */
+  .ct-item{font-size:11px!important;padding:5px 0!important}
+  /* DEPTH CHART */
+  .dc-row{flex-wrap:wrap!important}
+  .dc-player{font-size:10px!important;padding:5px!important}
+  /* EFF BARS */
+  .ebar-fill span{font-size:9px!important}
+  /* ZONE CARDS */
+  .zcard.outer{background:#fff7ed!important;border:2px solid var(--o)!important}
+  .zcard.inner,.zcard.score{background:#fef2f2!important;border:2px solid #dc2626!important}
+}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<nav id="sb">
+  <div class="sb-logo">
+    <div class="sb-team">VT Football</div>
+    <div class="sb-sub">Advance Scout · Defense</div>
+  </div>
+  <a href="index.html" style="text-decoration:none;display:block;"><div class="nav">🏠 Team Hub</div></a>
+  <a href="self-scout.html" style="text-decoration:none;display:block;"><div class="nav">🏈 Self Scout</div></a>
+  <div class="sb-sec">Overview</div>
+  <div class="nav on" onclick="show('overview')">📋 Overview</div>
+  <div class="nav" onclick="show('dc')">👤 DC Profile</div>
+  <div class="nav" onclick="show('stats')">📊 Def. Statistics</div>
+  <div class="nav" onclick="show('depth')">🏈 Depth Chart</div>
+  <div class="sb-sec">Scheme</div>
+  <div class="nav" onclick="show('run')">🏃 Run Defense</div>
+  <div class="nav" onclick="show('nd')">Normal Downs</div>
+  <div class="nav sub" onclick="show('nd');switchStab('nd','formations')">↳ Formations</div>
+  <div class="nav sub" onclick="show('nd');switchStab('nd','fronts')">↳ Fronts</div>
+  <div class="nav sub" onclick="show('nd');switchStab('nd','coverage')">↳ Coverage</div>
+  <div class="nav sub" onclick="show('nd');switchStab('nd','blitz')">↳ Blitz</div>
+  <div class="nav" onclick="show('cd')">Conversion Downs</div>
+  <div class="nav sub" onclick="show('cd');switchStab('cd','formations')">↳ Formations</div>
+  <div class="nav sub" onclick="show('cd');switchStab('cd','fronts')">↳ Fronts</div>
+  <div class="nav sub" onclick="show('cd');switchStab('cd','coverage')">↳ Coverage</div>
+  <div class="nav sub" onclick="show('cd');switchStab('cd','blitz')">↳ Blitz</div>
+  <div class="nav" onclick="show('rz')">🎯 Red Zone</div>
+  <div class="nav" onclick="show('gl')">🏁 Goal Line</div>
+  <div class="sb-sec">Saved Reports</div>
+  <div class="sb-save-btn" onclick="saveReport()">💾 Save Current Report</div>
+  <div id="saved-reports-list"><div class="sr-empty">No saved reports yet</div></div>
+</nav>
+
+<!-- MAIN -->
+<div id="main">
+  <!-- TOP BAR -->
+  <div id="tbar">
+    <div class="tbar-opp">
+      <div class="tbar-name" id="tbar-name">MARYLAND</div>
+      <div class="tbar-info" id="tbar-info">2025 Season · DC: Ted Monachino (2nd Season) · Big Ten</div>
+    </div>
+    <button class="btn btn-out" onclick="document.getElementById('modal').classList.add('show')">⬆ Import CSV</button>
+    <button class="btn btn-m" onclick="downloadTemplate()">⬇ Template</button>
+    <button class="btn" style="background:#166534;color:#fff" onclick="saveReport()">💾 Save</button>
+    <button class="btn" style="background:#1e3a8a;color:#fff" onclick="document.getElementById('share-modal').classList.add('show')">📤 Share</button>
+    <button class="btn btn-o" onclick="printDashboard()">🖨 Print</button>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content">
+
+    <!-- ===== OVERVIEW ===== -->
+    <div class="sec on" id="sec-overview">
+      <div class="sec-hd"><div class="sec-title">Overview &amp; Game Plan</div><div class="sec-line"></div></div>
+
+      <!-- STAT CARDS -->
+      <div class="g7 mb14" id="stat-cards-row"></div>
+
+      <div class="g2 mt14">
+        <!-- FAST FACTS -->
+        <div class="card">
+          <div class="card-hd">⚡ Fast Facts / Tendencies</div>
+          <div id="fast-facts-list"></div>
+        </div>
+        <!-- EXPLOIT -->
+        <div class="exploit">
+          <div class="exploit-hd">🎯 Exploit Opportunities — Competitive Edge</div>
+          <div id="exploit-list"></div>
+        </div>
+      </div>
+
+      <!-- SITUATION QUICK REF -->
+      <div class="card mt14">
+        <div class="card-hd">📌 Situation Quick Reference</div>
+        <div class="g4" id="sit-ref"></div>
+      </div>
+    </div>
+
+    <!-- ===== DC PROFILE ===== -->
+    <div class="sec" id="sec-dc">
+      <div class="sec-hd"><div class="sec-title">Defensive Coordinator Profile</div><div class="sec-line"></div></div>
+      <div class="g2">
+        <div class="card">
+          <div class="card-hd">Background</div>
+          <div style="font-size:20px;font-weight:900;color:var(--m)" id="dc-name"></div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px" id="dc-title"></div>
+          <div style="font-size:12.5px;line-height:1.6" id="dc-bio"></div>
+        </div>
+        <div>
+          <div class="card mb14">
+            <div class="card-hd">DC Stats as Coordinator</div>
+            <table class="tbl" id="dc-stats-tbl">
+              <thead><tr><th>Year</th><th>Team</th><th>Pts Allowed</th><th>Yds Allowed</th><th>Rush Def</th><th>Pass Def</th><th>TFL/G</th></tr></thead>
+              <tbody><tr><td>2025</td><td>Maryland</td><td>26.50 (#76)</td><td>402.08 (#98)</td><td>175.58 (#101)</td><td>226.50 (#82)</td><td>5.42 (#70)</td></tr></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">Coaching Career (33 Years)</div>
+            <div id="dc-career"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== DEF STATS ===== -->
+    <div class="sec" id="sec-stats">
+      <div class="sec-hd"><div class="sec-title">Defensive Statistics 2025</div><div class="sec-line"></div></div>
+      <div class="g2">
+        <div class="card">
+          <div class="card-hd">Season Rankings</div>
+          <table class="tbl" id="stats-tbl"></table>
+        </div>
+        <div>
+          <div class="card mb14">
+            <div class="card-hd">National Ranking Visualization</div>
+            <div class="ch"><canvas id="ch-ranks"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-hd">Top 3 Yardage Games vs Maryland</div>
+            <table class="tbl" id="top3-tbl"></table>
+          </div>
+        </div>
+      </div>
+      <div class="card mt14">
+        <div class="card-hd">Statistical Leaders (Returning)</div>
+        <div class="g4" id="stat-leaders"></div>
+      </div>
+    </div>
+
+    <!-- ===== DEPTH CHART ===== -->
+    <div class="sec" id="sec-depth">
+      <div class="sec-hd"><div class="sec-title">Defensive Depth Chart</div><div class="sec-line"></div></div>
+      <div class="callout warn"><strong>Transfers In:</strong> #96 Jayvon Parker (DL–Washington) · #95 Armon Parker (DL–Washington) · #99 Lavon Johnson (DL–Texas) · #24 Amari Jackson (CB–Boston College) · #88 Derrick LeBlanc (DL–Central Florida)</div>
+      <div class="card">
+        <div class="card-hd">Secondary</div>
+        <div class="dc-row" id="dc-secondary"></div>
+      </div>
+      <div class="card mt14">
+        <div class="card-hd">Defensive Line / Pass Rush</div>
+        <div class="dc-row" id="dc-dline"></div>
+      </div>
+    </div>
+
+    <!-- ===== RUN DEFENSE ===== -->
+    <div class="sec" id="sec-run">
+      <div class="sec-hd"><div class="sec-title">Run Defense — DL Techniques &amp; Efficiencies</div><div class="sec-line"></div></div>
+      <div class="callout success"><strong>Overall Run Efficiency Allowed: 56%</strong> (154/277) — Mid Zone is their most vulnerable at 59%. Wide Zone most defended at 52%. Option: 0% efficiency allowed (3 plays).</div>
+      <div class="g2 mb14">
+        <div class="card">
+          <div class="card-hd">Run Family Efficiencies (Higher % = Better for Offense)</div>
+          <div id="run-eff-bars"></div>
+          <div class="txt-xs txt-muted mt8">🟢 &lt;50% = Good D · 🟡 50-59% = Moderate · 🔴 60%+ = Offense Wins</div>
+        </div>
+        <div class="card">
+          <div class="card-hd">Run Family Efficiency Chart</div>
+          <div class="ch-lg"><canvas id="ch-run-eff"></canvas></div>
+        </div>
+      </div>
+      <div class="g2">
+        <div class="card">
+          <div class="card-hd">DL Techniques — 3 Tech (RB Side)</div>
+          <table class="tbl">
+            <thead><tr><th>Alignment</th><th># Plays</th></tr></thead>
+            <tbody>
+              <tr><td class="b">TO (Toward RB)</td><td class="b hl">170</td></tr>
+              <tr><td>AWAY (Away from RB)</td><td>143</td></tr>
+              <tr><td>PST (Post)</td><td>57</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-hd">Run Game Reactions</div>
+          <div class="g2">
+            <div>
+              <div class="card-hd" style="margin-bottom:6px">Read / Unblocked DE</div>
+              <table class="tbl">
+                <thead><tr><th>Reaction</th><th>#</th></tr></thead>
+                <tbody>
+                  <tr><td class="b">SURF</td><td>14</td></tr>
+                  <tr><td>UPFIELD</td><td>13</td></tr>
+                  <tr><td>MESH CHARGE</td><td>11</td></tr>
+                  <tr><td>SIT</td><td>2</td></tr>
+                  <tr><td>SQUEEZE</td><td>1</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <div class="card-hd" style="margin-bottom:6px">POA DE</div>
+              <table class="tbl">
+                <thead><tr><th>Reaction</th><th>#</th></tr></thead>
+                <tbody>
+                  <tr><td class="b">DENT</td><td>17</td></tr>
+                  <tr><td>BOX</td><td>9</td></tr>
+                  <tr><td>SPILL</td><td>2</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== NORMAL DOWNS ===== -->
+    <div class="sec" id="sec-nd">
+      <div class="sec-hd"><div class="sec-title">Normal Downs — Fronts, Coverage &amp; Blitz</div><div class="sec-line"></div></div>
+      <div class="stabs" id="nd-tabs">
+        <div class="stab on" onclick="switchStab('nd','formations')">Formations</div>
+        <div class="stab" onclick="switchStab('nd','fronts')">Fronts</div>
+        <div class="stab" onclick="switchStab('nd','coverage')">Coverage</div>
+        <div class="stab" onclick="switchStab('nd','blitz')">Blitz</div>
+      </div>
+
+      <!-- FORMATIONS -->
+      <div class="stcon on" id="nd-formations">
+        <div class="print-label">Normal Downs — Formation Tendencies</div>
+        <div class="callout info"><strong>Total ND Plays: 351</strong> · 352 snaps tracked · EVEN front dominant (85%) · 36% blitz rate overall</div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-hd">Formation Tendencies — Normal Downs</div>
+            <table class="tbl">
+              <thead><tr><th>Formation</th><th>Pers</th><th>Plays</th><th>Blitz%</th><th>Top Front</th><th>Top Coverage</th></tr></thead>
+              <tbody>
+                <tr><td class="b">TRIPS 3×1</td><td>11P</td><td>69 (20%)</td><td class="hlb b">42%</td><td>OVER G (57%)</td><td>3 WK (19%), COV 4 (13%)</td></tr>
+                <tr><td class="b">DOS 2×2</td><td>11P</td><td>41 (12%)</td><td class="hlb b">44%</td><td>OVER G (59%)</td><td>3 WK (15%), COV 1 (15%)</td></tr>
+                <tr><td class="b">DICE 2×2</td><td>11P</td><td>33 (9%)</td><td class="hl b">33%</td><td>OVER G (39%)</td><td>3 WK (30%), 3 ZONE (12%)</td></tr>
+                <tr><td class="b">BOX 3×1</td><td>11/12P</td><td>23 (7%)</td><td class="hlb b">48%</td><td>OVER G (39%)</td><td>3 WK (22%), 0 ROBBER (17%)</td></tr>
+                <tr><td class="b">DOCK 2×2</td><td>11P</td><td>23 (7%)</td><td class="hl b">30%</td><td>OVER G (52%)</td><td>3 ZONE (17%), 3 WK (17%)</td></tr>
+                <tr><td class="b">STRAY 3×1</td><td>11P</td><td>16 (5%)</td><td class="hl b">31%</td><td>OVER G (62%)</td><td>3 BUZZ (31%), 2 TAMPA (12%)</td></tr>
+                <tr><td class="b">TRIO 3×1</td><td>10/11P</td><td>15 (4%)</td><td class="hlb b">47%</td><td>UNDER G (60%)</td><td>0 ROBBER (13%), 0 BLITZ (13%)</td></tr>
+                <tr><td class="b">DAWN 2×2</td><td>12/11P</td><td>14 (4%)</td><td class="hl b">36%</td><td>BEAR (29%)</td><td>0 ROBBER (21%), 0 BLITZ (14%)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">Formation Frequency vs Blitz Rate</div>
+            <div class="ch-lg"><canvas id="ch-nd-form"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FRONTS -->
+      <div class="stcon" id="nd-fronts">
+        <div class="print-label">Normal Downs — Fronts</div>
+        <div class="g2 mb14">
+          <div class="card">
+            <div class="card-hd">Front Family — Overall</div>
+            <div class="ch-sm"><canvas id="ch-nd-fronts-donut"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-hd">Front Family Distribution</div>
+            <table class="tbl">
+              <thead><tr><th>Family</th><th># Plays</th><th>% Snaps</th></tr></thead>
+              <tbody>
+                <tr><td class="b">EVEN</td><td>299</td><td class="b hl">85%</td></tr>
+                <tr><td>ODD</td><td>33</td><td>9%</td></tr>
+                <tr><td>BEAR</td><td>13</td><td>4%</td></tr>
+                <tr><td>GAPS</td><td>5</td><td>1%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-hd">Fronts — 1st Down</div>
+            <table class="tbl">
+              <thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">OVER G</td><td>92</td><td class="b hl">45%</td></tr>
+                <tr><td>UNDER G</td><td>30</td><td>15%</td></tr>
+                <tr><td>OVER SH</td><td>30</td><td>15%</td></tr>
+                <tr><td>UNDER SH</td><td>9</td><td>4%</td></tr>
+                <tr><td>BEAR</td><td>9</td><td>4%</td></tr>
+                <tr><td>WIDE</td><td>8</td><td>4%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">Fronts — 2nd &amp; Short (1-3)</div>
+            <table class="tbl">
+              <thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">OVER G</td><td>15</td><td class="b hl">43%</td></tr>
+                <tr><td>OVER SH</td><td>6</td><td>17%</td></tr>
+                <tr><td>ODD TITE BEAR</td><td>5</td><td>14%</td></tr>
+                <tr><td>UNDER G</td><td>3</td><td>9%</td></tr>
+                <tr><td>GAPS</td><td>2</td><td>6%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">Fronts — 2nd &amp; Med (4-6)</div>
+            <table class="tbl">
+              <thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">OVER G</td><td>14</td><td class="b hl">40%</td></tr>
+                <tr><td>UNDER G</td><td>8</td><td>23%</td></tr>
+                <tr><td>OVER SH</td><td>4</td><td>11%</td></tr>
+                <tr><td>WIDE</td><td>2</td><td>6%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">Fronts — 2nd &amp; Long (7+)</div>
+            <table class="tbl">
+              <thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">OVER G</td><td>27</td><td class="b hl">35%</td></tr>
+                <tr><td>OVER SH</td><td>15</td><td>19%</td></tr>
+                <tr><td>UNDER G</td><td>13</td><td>17%</td></tr>
+                <tr><td>WIDE</td><td>7</td><td>9%</td></tr>
+                <tr><td>UNDER SH</td><td>5</td><td>6%</td></tr>
+                <tr><td>HEADS</td><td>3</td><td>4%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- COVERAGE -->
+      <div class="stcon" id="nd-coverage">
+        <div class="print-label">Normal Downs — Coverage</div>
+        <div class="g2 mb14">
+          <div class="card">
+            <div class="card-hd">Coverage Family — Overall</div>
+            <div class="ch-sm"><canvas id="ch-nd-cov-donut"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-hd">Coverage Distribution</div>
+            <table class="tbl">
+              <thead><tr><th>Family (Shell)</th><th># Plays</th><th>% Snaps</th></tr></thead>
+              <tbody>
+                <tr><td class="b">Cover 3 (1HZ)</td><td>80</td><td class="b hl">23%</td></tr>
+                <tr><td>Cover 0 (ZERO)</td><td>56</td><td>16%</td></tr>
+                <tr><td>Cover 4/6 (QTRS)</td><td>50</td><td>14%</td></tr>
+                <tr><td>Cover 1 Blitz (1HMP)</td><td>45</td><td>13%</td></tr>
+                <tr><td>Cover 3 Zone (1HZP)</td><td>42</td><td>12%</td></tr>
+                <tr><td>Cover 2 (2HZ)</td><td>26</td><td>7%</td></tr>
+                <tr><td>Cover 1 (1HM)</td><td>24</td><td>7%</td></tr>
+              </tbody>
+            </table>
+            <div class="mt8 txt-xs txt-muted"><strong>CB Tech:</strong> SOLO (4%) · SINGLE (2%) · PRESS (2%)</div>
+          </div>
+        </div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-hd">Coverage — 1st Down</div>
+            <table class="tbl">
+              <thead><tr><th>Coverage</th><th>#</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">3 WK</td><td>28</td><td class="b hl">14%</td></tr>
+                <tr><td>COV 4</td><td>18</td><td>9%</td></tr>
+                <tr><td>0 BLITZ</td><td>15</td><td>7%</td></tr>
+                <tr><td>COV 1</td><td>15</td><td>7%</td></tr>
+                <tr><td>3 ZONE</td><td>14</td><td>7%</td></tr>
+                <tr><td>6</td><td>10</td><td>5%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">Coverage — 2nd &amp; Short (1-3)</div>
+            <table class="tbl">
+              <thead><tr><th>Coverage</th><th>#</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">3 WK</td><td>6</td><td>17%</td></tr>
+                <tr><td class="b">0 BLITZ</td><td>6</td><td class="b hlb">17%</td></tr>
+                <tr><td>2 TAMPA</td><td>3</td><td>9%</td></tr>
+                <tr><td>3 ZONE</td><td>3</td><td>9%</td></tr>
+                <tr><td>6</td><td>2</td><td>6%</td></tr>
+                <tr><td>GL 0</td><td>2</td><td>6%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">Coverage — 2nd &amp; Med (4-6)</div>
+            <table class="tbl">
+              <thead><tr><th>Coverage</th><th>#</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">0 BLITZ</td><td>5</td><td class="b hlb">14%</td></tr>
+                <tr><td>3 ZONE</td><td>4</td><td>11%</td></tr>
+                <tr><td>COV 3</td><td>3</td><td>9%</td></tr>
+                <tr><td>0 ROBBER</td><td>3</td><td>9%</td></tr>
+                <tr><td>6</td><td>3</td><td>9%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">Coverage — 2nd &amp; Long (7+)</div>
+            <table class="tbl">
+              <thead><tr><th>Coverage</th><th>#</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">3 WK</td><td>15</td><td class="b hl">19%</td></tr>
+                <tr><td>6</td><td>7</td><td>9%</td></tr>
+                <tr><td>0 BLITZ</td><td>7</td><td>9%</td></tr>
+                <tr><td>2 TAMPA MAX</td><td>5</td><td>6%</td></tr>
+                <tr><td>2 ROB</td><td>3</td><td>4%</td></tr>
+                <tr><td>3 ZONE WK</td><td>3</td><td>4%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- BLITZ -->
+      <div class="stcon" id="nd-blitz">
+        <div class="print-label">Normal Downs — Blitz</div>
+        <div class="callout danger"><strong>36% Blitz Rate</strong> on Normal Downs (128/352 plays) · 5-Man+ Blitz: 34% (120/352) · Blitz is highly consistent across all down &amp; distance situations</div>
+        <div class="g4 mb14">
+          <div class="pcard int"><div class="ppct">35%</div><div class="plbl">Internal</div><div class="pcnt">44/127 plays</div></div>
+          <div class="pcard fld"><div class="ppct">28%</div><div class="plbl">Field</div><div class="pcnt">35/127 plays</div></div>
+          <div class="pcard dbl"><div class="ppct">20%</div><div class="plbl">Dbl Edge</div><div class="pcnt">26/127 plays</div></div>
+          <div class="pcard bnd"><div class="ppct">15%</div><div class="plbl">Boundary</div><div class="pcnt">19/127 plays</div></div>
+        </div>
+        <div class="g2">
+          <div>
+            <div class="card mb14">
+              <div class="card-hd">5-Man Pressure Schemes (127 plays)</div>
+              <table class="tbl">
+                <thead><tr><th>Scheme</th><th>#</th><th>% of Blitz</th></tr></thead>
+                <tbody>
+                  <tr><td class="b">S EDGE</td><td>23</td><td class="b hlb">18%</td></tr>
+                  <tr><td>W-2</td><td>8</td><td>6%</td></tr>
+                  <tr><td>FS EDGE</td><td>8</td><td>6%</td></tr>
+                  <tr><td>M-B</td><td>7</td><td>6%</td></tr>
+                  <tr><td>W-1</td><td>5</td><td>4%</td></tr>
+                  <tr><td>M-A</td><td>4</td><td>3%</td></tr>
+                  <tr><td>W EDGE</td><td>3</td><td>2%</td></tr>
+                  <tr><td>COBRA</td><td>2</td><td>2%</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card">
+              <div class="card-hd">6-Man Pressure Schemes (127 plays)</div>
+              <table class="tbl">
+                <thead><tr><th>Scheme</th><th>#</th><th>% of Blitz</th></tr></thead>
+                <tbody>
+                  <tr><td class="b">SAW</td><td>24</td><td class="b hlb">19%</td></tr>
+                  <tr><td>GUT X</td><td>4</td><td>3%</td></tr>
+                  <tr><td>S EDGE W-2</td><td>2</td><td>2%</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div>
+            <div class="card mb14">
+              <div class="card-hd">RB Blitz Tendency (Normal Downs)</div>
+              <table class="tbl">
+                <thead><tr><th>RB Alignment</th><th># Plays</th><th>% of Blitz</th></tr></thead>
+                <tbody>
+                  <tr><td class="b">I (Isolated)</td><td>43</td><td class="b hlb">34%</td></tr>
+                  <tr><td>TO (Toward)</td><td>42</td><td class="hlb b">33%</td></tr>
+                  <tr><td>PST (Post)</td><td>24</td><td>19%</td></tr>
+                  <tr><td>AWAY</td><td>12</td><td>9%</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card mb14">
+              <div class="card-hd">Blitz by Personnel</div>
+              <table class="tbl">
+                <thead><tr><th>Off Pers</th><th>ND Plays</th><th>Blitz</th><th>Blitz%</th></tr></thead>
+                <tbody>
+                  <tr><td class="b">11</td><td>253</td><td>86</td><td class="hl b">34%</td></tr>
+                  <tr><td class="b">12</td><td>74</td><td>35</td><td class="hlb b">47%</td></tr>
+                  <tr><td>10</td><td>8</td><td>3</td><td>38%</td></tr>
+                  <tr><td>13</td><td>7</td><td>2</td><td>29%</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card">
+              <div class="card-hd">Coverage on Blitz</div>
+              <table class="tbl">
+                <thead><tr><th>Coverage</th><th># Plays</th><th>% of Blitz</th></tr></thead>
+                <tbody>
+                  <tr><td class="b">3 ZONE</td><td>16</td><td class="b hl">13%</td></tr>
+                  <tr><td>3 ZONE WK</td><td>11</td><td>9%</td></tr>
+                  <tr><td>2 ZONE</td><td>5</td><td>4%</td></tr>
+                  <tr><td>32 ZONE WK</td><td>3</td><td>2%</td></tr>
+                  <tr><td>32 ZONE</td><td>3</td><td>2%</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- end ND -->
+
+    <!-- ===== CONVERSION DOWNS ===== -->
+    <div class="sec" id="sec-cd">
+      <div class="sec-hd"><div class="sec-title">Conversion Downs — Fronts, Coverage &amp; Blitz</div><div class="sec-line"></div></div>
+      <div class="stabs" id="cd-tabs">
+        <div class="stab on" onclick="switchStab('cd','formations')">Formations</div>
+        <div class="stab" onclick="switchStab('cd','fronts')">Fronts</div>
+        <div class="stab" onclick="switchStab('cd','coverage')">Coverage</div>
+        <div class="stab" onclick="switchStab('cd','blitz')">Blitz</div>
+      </div>
+
+      <!-- CD FORMATIONS -->
+      <div class="stcon on" id="cd-formations">
+        <div class="print-label">Conversion Downs — Formation Tendencies</div>
+        <div class="callout warn"><strong>Total CD Plays: 177</strong> · 40% blitz rate · Blitz rate RISES on conversion downs vs normal downs</div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-hd">Formation Tendencies — Conversion Downs</div>
+            <table class="tbl">
+              <thead><tr><th>Formation</th><th>Pers</th><th>Plays</th><th>Blitz%</th><th>Top Front</th><th>Top Coverage</th></tr></thead>
+              <tbody>
+                <tr><td class="b">TRIPS 3×1</td><td>11P</td><td>31 (18%)</td><td class="hlb b">48%</td><td>OVER G (35%), OKIE (26%)</td><td>3 WK (10%), 2 ZONE (10%)</td></tr>
+                <tr><td class="b">TRIO 3×1</td><td>11/10P</td><td>24 (14%)</td><td class="hlb b">50%</td><td>WIDE (33%), OVER G (25%)</td><td>COV 1 (12%), 1 ROBBER (8%)</td></tr>
+                <tr><td class="b">DUO 2×2</td><td>11/10P</td><td>17 (10%)</td><td class="hlb b">47%</td><td>WIDE (35%), OVER G (29%)</td><td>COV 1 (18%), COV 4 (12%)</td></tr>
+                <tr><td class="b">DICE 2×2</td><td>11P</td><td>10 (6%)</td><td class="hlb b">50%</td><td>OVER G (50%), OKIE (20%)</td><td>3 WK (20%), 2 TAMPA MAX (10%)</td></tr>
+                <tr><td class="b">STRAY 3×1</td><td>11P</td><td>10 (6%)</td><td class="hl b">40%</td><td>OVER SH (40%), OKIE (20%)</td><td>3 BUZZ (30%), 1 ROBBER MAX (10%)</td></tr>
+                <tr><td class="b">BOX 3×1</td><td>11/12P</td><td>10 (6%)</td><td class="hl b">40%</td><td>OVER G (30%), WIDE (20%)</td><td>3 WK (20%), 1 BRACKET (20%)</td></tr>
+                <tr><td class="b">DIZZY 2×2</td><td>11P</td><td>7 (4%)</td><td class="hlg b">29%</td><td>OVER G (43%), UNDER G (29%)</td><td>2 TAMPA (29%), 1 ROBBER (14%)</td></tr>
+                <tr><td class="b">HOUSE 2×2</td><td>20P/3×1</td><td>7 (4%)</td><td class="hlb b">57%</td><td>OVER G (57%), WIDE (14%)</td><td>0 BLITZ (43%), COV 1 (29%)</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">Conversion Downs — Formation Frequency vs Blitz Rate</div>
+            <div class="ch-lg"><canvas id="ch-cd-form"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CD FRONTS -->
+      <div class="stcon" id="cd-fronts">
+        <div class="print-label">Conversion Downs — Fronts</div>
+        <div class="g2 mb14">
+          <div class="card">
+            <div class="card-hd">Front Family — Conversion Downs Overall</div>
+            <table class="tbl">
+              <thead><tr><th>Family</th><th># Plays</th><th>% Snaps</th></tr></thead>
+              <tbody>
+                <tr><td class="b">EVEN</td><td>137</td><td class="b hl">77%</td></tr>
+                <tr><td>ODD</td><td>36</td><td>20%</td></tr>
+                <tr><td>GAPS</td><td>1</td><td>1%</td></tr>
+              </tbody>
+            </table>
+            <div class="ch-sm mt8"><canvas id="ch-cd-fronts-donut"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-hd">Fronts — 3rd &amp; 1</div>
+            <table class="tbl">
+              <thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">OVER G</td><td>8</td><td class="b hl">36%</td></tr>
+                <tr><td>OVER SH</td><td>7</td><td>32%</td></tr>
+                <tr><td>UNDER G</td><td>4</td><td>18%</td></tr>
+                <tr><td>GAPS</td><td>1</td><td>5%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="g4">
+          <div class="card">
+            <div class="card-hd">3rd &amp; 2</div>
+            <table class="tbl">
+              <thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">OVER G</td><td>6</td><td class="b hl">50%</td></tr>
+                <tr><td>UNDER G</td><td>2</td><td>17%</td></tr>
+                <tr><td>ODD KC BEAR</td><td>1</td><td>8%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">3rd &amp; 3-5</div>
+            <table class="tbl">
+              <thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">OVER G</td><td>16</td><td class="b hl">38%</td></tr>
+                <tr><td>WIDE</td><td>9</td><td>21%</td></tr>
+                <tr><td>UNDER G</td><td>5</td><td>12%</td></tr>
+                <tr><td>UNDER SH</td><td>4</td><td>10%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">3rd &amp; 6-10</div>
+            <table class="tbl">
+              <thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">OVER G</td><td>17</td><td class="b hl">29%</td></tr>
+                <tr><td>WIDE</td><td>13</td><td>22%</td></tr>
+                <tr><td>OKIE</td><td>12</td><td>21%</td></tr>
+                <tr><td>UNDER G</td><td>9</td><td>16%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">3rd &amp; 11+</div>
+            <table class="tbl">
+              <thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">OKIE</td><td>8</td><td class="b hl">38%</td></tr>
+                <tr><td>WIDE</td><td>6</td><td>29%</td></tr>
+                <tr><td>OVER G</td><td>5</td><td>24%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CD COVERAGE -->
+      <div class="stcon" id="cd-coverage">
+        <div class="print-label">Conversion Downs — Coverage</div>
+        <div class="g2 mb14">
+          <div class="card">
+            <div class="card-hd">Coverage Family — Conversion Downs</div>
+            <div class="ch-sm"><canvas id="ch-cd-cov-donut"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-hd">Coverage Distribution</div>
+            <table class="tbl">
+              <thead><tr><th>Family (Shell)</th><th># Plays</th><th>% Snaps</th></tr></thead>
+              <tbody>
+                <tr><td class="b">Cover 1 (1HM)</td><td>28</td><td class="b hl">16%</td></tr>
+                <tr><td>Cover 1 Blitz (1HMP)</td><td>27</td><td>15%</td></tr>
+                <tr><td>Cover 3 (1HZ)</td><td>23</td><td>13%</td></tr>
+                <tr><td>Cover 2 (2HZ)</td><td>21</td><td>12%</td></tr>
+                <tr><td>Cover 0 (ZERO)</td><td>18</td><td>10%</td></tr>
+                <tr><td>Cover 4/6 (QTRS)</td><td>15</td><td>8%</td></tr>
+                <tr><td>Cover 2 Zone (2HZP)</td><td>13</td><td>7%</td></tr>
+                <tr><td>Cover 2 MAX (2HZ MAX)</td><td>9</td><td>5%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="g4">
+          <div class="card">
+            <div class="card-hd">3rd &amp; 1-2</div>
+            <table class="tbl">
+              <thead><tr><th>Coverage</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">3 WK</td><td>23%</td></tr>
+                <tr><td>0 BLITZ</td><td>18%</td></tr>
+                <tr><td>COV 3</td><td>9%</td></tr>
+                <tr><td>COV 1</td><td>5%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">3rd &amp; 3-5</div>
+            <table class="tbl">
+              <thead><tr><th>Coverage</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">COV 1</td><td>21%</td></tr>
+                <tr><td>3 WK</td><td>12%</td></tr>
+                <tr><td>COV 4</td><td>10%</td></tr>
+                <tr><td>2 TAMPA</td><td>7%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">3rd &amp; 6-10</div>
+            <table class="tbl">
+              <thead><tr><th>Coverage</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">2 ZONE</td><td>12%</td></tr>
+                <tr><td>2 TAMPA MAX</td><td>10%</td></tr>
+                <tr><td>2 TAMPA</td><td>7%</td></tr>
+                <tr><td>1 ROBBER</td><td>5%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">3rd &amp; 11+</div>
+            <table class="tbl">
+              <thead><tr><th>Coverage</th><th>%</th></tr></thead>
+              <tbody>
+                <tr><td class="b">2 MAN</td><td>14%</td></tr>
+                <tr><td>1 ROBBER</td><td>14%</td></tr>
+                <tr><td>2 TAMPA</td><td>14%</td></tr>
+                <tr><td>3 DBL BUZZ MAX</td><td>5%</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CD BLITZ -->
+      <div class="stcon" id="cd-blitz">
+        <div class="print-label">Conversion Downs — Blitz</div>
+        <div class="callout danger"><strong>40% Blitz Rate</strong> on Conversion Downs (71/177 plays) · 5-Man+ Blitz: 28% (50/177) · <strong>12-personnel sees 58% blitz — their highest</strong></div>
+        <div class="g4 mb14">
+          <div class="pcard int"><div class="ppct">39%</div><div class="plbl">Internal</div><div class="pcnt">28/71 plays</div></div>
+          <div class="pcard fld"><div class="ppct">11%</div><div class="plbl">Field</div><div class="pcnt">8/71 plays</div></div>
+          <div class="pcard bnd"><div class="ppct">11%</div><div class="plbl">Boundary</div><div class="pcnt">8/71 plays</div></div>
+          <div class="pcard dbl"><div class="ppct">8%</div><div class="plbl">Dbl Edge</div><div class="pcnt">6/71 plays</div></div>
+        </div>
+        <div class="g2">
+          <div class="card">
+            <div class="card-hd">5-Man Pressure Schemes</div>
+            <table class="tbl">
+              <thead><tr><th>Scheme</th><th>#</th><th>% of Blitz</th></tr></thead>
+              <tbody>
+                <tr><td class="b">M-A</td><td>7</td><td class="b hlb">10%</td></tr>
+                <tr><td>FS EDGE</td><td>4</td><td>6%</td></tr>
+                <tr><td>S EDGE</td><td>4</td><td>6%</td></tr>
+                <tr><td>W-2</td><td>3</td><td>4%</td></tr>
+                <tr><td>SNAKE MISSILE 1/2</td><td>2</td><td>3%</td></tr>
+                <tr><td>M EDGE</td><td>2</td><td>3%</td></tr>
+                <tr><td>W EDGE</td><td>2</td><td>3%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="card mb14">
+              <div class="card-hd">6-Man Pressure Schemes</div>
+              <table class="tbl">
+                <thead><tr><th>Scheme</th><th>#</th><th>% of Blitz</th></tr></thead>
+                <tbody>
+                  <tr><td class="b">SAW</td><td>5</td><td class="b hlb">7%</td></tr>
+                  <tr><td>M-B W-2</td><td>2</td><td>3%</td></tr>
+                  <tr><td>W-SPY</td><td>1</td><td>1%</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="card">
+              <div class="card-hd">RB Blitz Tendency (Conversion)</div>
+              <table class="tbl">
+                <thead><tr><th>RB Alignment</th><th>#</th><th>% of Blitz</th></tr></thead>
+                <tbody>
+                  <tr><td class="b">I (Isolated)</td><td>28</td><td class="b hlb">39%</td></tr>
+                  <tr><td>TO (Toward)</td><td>16</td><td>23%</td></tr>
+                  <tr><td>AWAY</td><td>6</td><td>8%</td></tr>
+                  <tr><td>PST</td><td>3</td><td>4%</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- end CD -->
+
+    <!-- ===== RED ZONE ===== -->
+    <div class="sec" id="sec-rz">
+      <div class="sec-hd"><div class="sec-title">Red Zone — +27 to +1</div><div class="sec-line"></div></div>
+      <div class="g4 mb14">
+        <div class="pcard int"><div class="ppct">51%</div><div class="plbl">RZ Blitz Rate</div><div class="pcnt">39/76 plays</div></div>
+        <div class="pcard fld"><div class="ppct">88%</div><div class="plbl">Man/Zero Inside +10</div><div class="pcnt">Up from 16% outside</div></div>
+        <div class="pcard dbl"><div class="ppct">65%</div><div class="plbl">Dbl Edge Inside +10</div><div class="pcnt">vs 13% outside</div></div>
+        <div class="pcard bnd"><div class="ppct">47%</div><div class="plbl">Blitz Inside +10</div><div class="pcnt">Up from 37% outside</div></div>
+      </div>
+      <div class="callout danger mb14">
+        <strong>⚠ LINE OF DEMARCATION: THE +10 YARD LINE</strong> — Man/zero coverage jumps from 16% → 88%. DBL EDGE pressure jumps from 13% → 65%. Expect a complete scheme shift at the +10. Inside the +10: <strong>0 BLITZ leads (39%)</strong>, 1 BRACKET (17%), 0 DBL ROBBER (17%).
+      </div>
+      <div class="g3 mb14">
+        <div class="zcard outer">
+          <div class="zhd">+27 to +13 (Outer RZ)</div>
+          <div class="txt-sm mb8"><strong>Front:</strong> EVEN 68% · ODD 16% · BEAR 6%</div>
+          <div class="txt-sm mb8"><strong>Coverage:</strong> 1HMP 35% · ZERO 26% · QTRS 16% · 1HM 13%</div>
+          <div class="txt-sm mb8"><strong>Blitz: 61%</strong> (19/31) · 5-Man 42% · 6-Man 58%</div>
+          <table class="tbl mt8" style="font-size:11px">
+            <thead><tr><th>Situation</th><th>Plays</th><th>Blitz%</th></tr></thead>
+            <tbody>
+              <tr><td>1st Down</td><td>14</td><td class="hlb b">71%</td></tr>
+              <tr><td>2nd &amp; Long</td><td>4</td><td class="hlb b">75%</td></tr>
+              <tr><td>3rd &amp; 3-5</td><td>3</td><td>33%</td></tr>
+              <tr><td>4th &amp; 1</td><td>2</td><td>50%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="zcard score">
+          <div class="zhd">+12 to +4 (Score Zone)</div>
+          <div class="txt-sm mb8"><strong>Front:</strong> EVEN 77% · ODD 17% · BEAR 3%</div>
+          <div class="txt-sm mb8"><strong>Coverage: ZERO 77%</strong> · 1HM 7% · 2HZ MAX 3%</div>
+          <div class="txt-sm mb8"><strong>Blitz: 47%</strong> (14/30) · 5-Man 36% · 6-Man 64%</div>
+          <table class="tbl mt8" style="font-size:11px">
+            <thead><tr><th>Situation</th><th>Plays</th><th>Blitz%</th></tr></thead>
+            <tbody>
+              <tr><td>1st Down</td><td>8</td><td class="hl b">38%</td></tr>
+              <tr><td>2nd &amp; Med</td><td>6</td><td class="hlb b">50%</td></tr>
+              <tr><td>2nd &amp; Long</td><td>4</td><td class="hlb b">50%</td></tr>
+              <tr><td>4th Down</td><td>2</td><td class="hlb b">50%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="zcard gl">
+          <div class="zhd">Goal Line +3 to +1</div>
+          <div class="txt-sm mb8"><strong>Front:</strong> EVEN 60% · GAPS 33% · ODD 7%</div>
+          <div class="txt-sm mb8" style="color:#fde68a"><strong>Coverage: 0 BLITZ 40% · GL 0 33%</strong></div>
+          <div class="txt-sm mb8"><strong>Blitz: 40%</strong> (6/15) · 6-Man 83% · 7-Man 17%</div>
+          <table class="tbl mt8" style="font-size:11px">
+            <thead><tr><th style="background:#5c1221">Down</th><th style="background:#5c1221">Blitz%</th><th style="background:#5c1221">Top Front</th></tr></thead>
+            <tbody style="color:#fff">
+              <tr style="background:rgba(255,255,255,.1)"><td>1st Down</td><td class="b">43%</td><td>UNDER G / GAPS</td></tr>
+              <tr><td>2nd Down</td><td class="b">50%</td><td>GAPS / UNDER SH</td></tr>
+              <tr style="background:rgba(255,255,255,.1)"><td>3rd &amp; 4th</td><td class="b">25%</td><td>OVER G / GAPS</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== GOAL LINE ===== -->
+    <div class="sec" id="sec-gl">
+      <div class="sec-hd"><div class="sec-title">Goal Line — +3 to +1</div><div class="sec-line"></div></div>
+      <div class="callout danger"><strong>KEY:</strong> Zero/Man coverage dominates (0 BLITZ 40% · GL 0 33%). 6-Man pressure is the primary blitz package (83% of blitz plays). Expect physical, downhill defense — gap/power run concepts may be most effective.</div>
+      <div class="g3">
+        <div class="card">
+          <div class="card-hd">Front Families</div>
+          <table class="tbl">
+            <thead><tr><th>Family</th><th>#</th><th>%</th></tr></thead>
+            <tbody>
+              <tr><td class="b">EVEN</td><td>9</td><td class="b">60%</td></tr>
+              <tr><td>GAPS</td><td>5</td><td>33%</td></tr>
+              <tr><td>ODD</td><td>1</td><td>7%</td></tr>
+            </tbody>
+          </table>
+          <div class="mt8 card-hd">Specific Fronts</div>
+          <table class="tbl">
+            <thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead>
+            <tbody>
+              <tr><td class="b">OVER G</td><td>5</td><td>33%</td></tr>
+              <tr><td class="b">GAPS</td><td>5</td><td>33%</td></tr>
+              <tr><td>UNDER G</td><td>2</td><td>13%</td></tr>
+              <tr><td>UNDER SH</td><td>1</td><td>7%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-hd">Coverage</div>
+          <table class="tbl">
+            <thead><tr><th>Coverage</th><th>#</th><th>%</th></tr></thead>
+            <tbody>
+              <tr><td class="b">0 BLITZ</td><td>6</td><td class="b hlb">40%</td></tr>
+              <tr><td class="b">GL 0</td><td>5</td><td class="b hlb">33%</td></tr>
+              <tr><td>0 ROBBER</td><td>1</td><td>7%</td></tr>
+              <tr><td>1 BRACKET</td><td>1</td><td>7%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-hd">Blitz Summary</div>
+          <table class="tbl mb8">
+            <thead><tr><th>Package</th><th>Plays</th><th>%</th></tr></thead>
+            <tbody>
+              <tr><td>Total 5-Man+</td><td>6/15</td><td class="b hlb">40%</td></tr>
+              <tr><td>5-Man</td><td>0</td><td>0%</td></tr>
+              <tr><td class="b">6-Man</td><td>5</td><td class="b hlb">83%</td></tr>
+              <tr><td>7-Man</td><td>1</td><td>17%</td></tr>
+            </tbody>
+          </table>
+          <div class="callout warn" style="margin:0"><strong>SAW</strong> is the top 6-man package on GL — watch for wide pressure / twists.</div>
+        </div>
+      </div>
+    </div>
+
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- BAKED-IN DATA (populated when exporting a share file) -->
+<script id="report-data" type="application/json">null</script>
+
+<!-- SHARE MODAL -->
+<div id="share-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div class="modal-title">Share This Report</div>
+      <span style="cursor:pointer;font-size:20px;color:var(--muted);line-height:1" onclick="document.getElementById('share-modal').classList.remove('show')">×</span>
+    </div>
+    <div class="modal-sub">Choose how to share the current scouting report with your staff.</div>
+    <div class="share-option" onclick="shareStandaloneFile()">
+      <div class="share-icon">📄</div>
+      <div>
+        <div class="share-title">Download Shareable File</div>
+        <div class="share-desc">Exports a self-contained HTML file with all data baked in. Staff just open it in any browser — no login, no server, no install needed. Email it or drop it in a shared drive.</div>
+      </div>
+    </div>
+    <div class="share-option" onclick="copyEmbedInstructions()">
+      <div class="share-icon">📋</div>
+      <div>
+        <div class="share-title">Copy Setup Instructions</div>
+        <div class="share-desc">Copies a quick-start guide to your clipboard. Paste it in a group chat so staff know how to open the dashboard and import weekly CSVs.</div>
+      </div>
+    </div>
+    <div style="margin-top:14px;padding:10px 14px;background:#f9fafb;border-radius:6px;font-size:11.5px;color:var(--muted)">
+      💡 <strong>Tip:</strong> Save the report first, then share — your named save will carry into the exported file so recipients see the correct opponent name.
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div id="modal">
+  <div class="modal">
+    <div class="modal-title">Import New Opponent CSV</div>
+    <div class="modal-sub">Drop your weekly opponent CSV file below to populate the dashboard. Download the template first to see the required format.</div>
+    <div class="fdrop" id="fdrop" onclick="document.getElementById('csv-input').click()">
+      <input type="file" id="csv-input" accept=".csv" onchange="handleFile(this.files[0])">
+      <div style="font-size:28px;margin-bottom:8px">📂</div>
+      <div style="font-weight:700;color:var(--m)">Click or drag CSV file here</div>
+      <div class="txt-xs txt-muted mt8">Accepted: .csv files only · Download template to see format</div>
+    </div>
+    <div class="flex gap10 mt14" style="justify-content:flex-end">
+      <button class="btn btn-m" onclick="downloadTemplate()">⬇ Download Template</button>
+      <button class="btn btn-out" onclick="document.getElementById('modal').classList.remove('show')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== DATA ====================
+const D = {
+  meta: { opponent: 'MARYLAND', info: '2025 Season · DC: Ted Monachino (2nd Season) · Big Ten' },
+  dc: {
+    name: 'Ted Monachino',
+    title: 'Defensive Coordinator & Outside Linebackers Coach',
+    bio: 'Ted Monachino is in his second season as Maryland\'s Defensive Coordinator. In 2025, he guided a defense that led the Big Ten with 19 interceptions (4th nationally) and ranked 2nd in the conference with 21 takeaways. Maryland led the conference with 4 defensive TDs. Monachino is a 33-year coaching veteran with 16 years in the NFL, specializing in outside linebackers and defensive line.',
+    career: [
+      { years:'1996–97', school:'TCU', role:'GA', nfl:false },
+      { years:'1998', school:'JMU', role:'DL', nfl:false },
+      { years:'1999', school:'Missouri State', role:'OLB', nfl:false },
+      { years:'2000', school:'Boise State', role:'DL', nfl:false },
+      { years:'2001–05', school:'Arizona State', role:'DL', nfl:false },
+      { years:'2006–09', school:'Jacksonville Jaguars', role:'DL', nfl:true },
+      { years:'2010–15', school:'Baltimore Ravens', role:'OLB', nfl:true },
+      { years:'2016–17', school:'Indianapolis Colts', role:'DC', nfl:true },
+      { years:'2018', school:'Missouri', role:'Analyst', nfl:false },
+      { years:'2019–20', school:'Chicago Bears', role:'OLB', nfl:true },
+      { years:'2021–22', school:'Atlanta Falcons', role:'OLB', nfl:true },
+      { years:'2023', school:'UNC', role:'Analyst', nfl:false },
+      { years:'2024', school:'UNC', role:'DL', nfl:false },
+      { years:'2025–', school:'Maryland', role:'DC', nfl:false },
+    ]
+  },
+  stats: [
+    { label:'Total Defense', val:'402.1 YPG', conf:16, nat:98, dir:'bad' },
+    { label:'Scoring Defense', val:'26.5 PPG', conf:14, nat:76, dir:'bad' },
+    { label:'Run Defense', val:'175.6 YPG', conf:15, nat:101, dir:'bad' },
+    { label:'Pass Defense', val:'226.5 YPG', conf:16, nat:82, dir:'bad' },
+    { label:'Takeaways', val:'21', conf:2, nat:35, dir:'good' },
+    { label:'3rd Down Def.', val:'42.9%', conf:15, nat:109, dir:'bad' },
+    { label:'Red Zone Def.', val:'79.2%', conf:4, nat:32, dir:'good' },
+  ],
+  fastFacts: [
+    'BASE FRONT IS <span class="hl">EVEN (85%)</span> with ODD (9%) — predominantly even-front. BEAR appears on only 4% of snaps.',
+    '<span class="hlb">36% BLITZ RATE</span> on normal downs (127/351). 5-man+ is 34%. Conversion downs: <span class="hlb">40% blitz</span>. Blitz is highly consistent.',
+    'INTERNAL PRESSURE IS PRIMARY <span class="hl">(43% of blitz plays)</span> followed by FIELD (25%). <span class="hl">S EDGE (18%) and SAW (19%)</span> are top blitz calls.',
+    '<span class="hl">3 WK LEADS</span> on normal downs (14%). 0 BLITZ second (9%). COV 4 third at 7%.',
+    '<span class="hlb">MID ZONE</span> gives them most trouble at <span class="hlb">59% efficiency</span> (74 plays). Overall run eff allowed: 56% (154/277).',
+    '<span class="hlb">LINE OF DEMARCATION: +10</span> — Man/zero coverage jumps from 16% → <span class="hlb">88% inside +10</span>. Expect full scheme change.',
+  ],
+  exploits: [
+    { text: 'Attack with <strong>MID ZONE runs</strong> — highest run eff. allowed (59%). Back field zone/cutback opens up vs their 3-tech alignment.' },
+    { text: '<strong>12-personnel on conversion downs</strong> triggers 58% blitz — highest of any grouping. TE protection/check-release beater.' },
+    { text: '<strong>Inside the +10 RZ:</strong> 88% man/zero. Run quick game, rub/mesh concepts and pick routes. Receiver speed vs press.' },
+    { text: '<strong>SAW blitz</strong> (19% of all blitz) = wide double-edge pressure. Hot routes to flat — RB/TE check-release immediately.' },
+    { text: '<strong>DOCK formation</strong> (2×2) shows only 30% blitz — lowest of any major formation. Use DOCK to control clock/run.' },
+    { text: 'On <strong>3rd &amp; 11+</strong>, they go to OKIE/WIDE fronts (67%) with 2 MAN / 1 ROBBER / 2 TAMPA. Flood concepts beat this.' },
+  ],
+  sitRef: [
+    { sit:'1st & 10', lines:['EVEN front (85%)', '3 WK / COV 4 coverage', '36% blitz — S EDGE/SAW'] },
+    { sit:'3rd & 3-5', lines:['COV 1 (21%) leads', 'OVER G front (38%)', '~40% blitz — M-A scheme'] },
+    { sit:'3rd & 6-10', lines:['WIDE / OKIE fronts', '2 ZONE / 2 TAMPA top', 'Watch M-A / FS EDGE blitz'] },
+    { sit:'Red Zone +10', lines:['0 BLITZ #1 (39%)', 'Man/Zero 88%', 'DBL EDGE 65%'] },
+  ],
+  depthChart: {
+    secondary: [
+      { pos:'FS', players:[{num:'#33',name:'Messiah Delhomme',info:'6\'2 196 SO · Newport News, VA',starter:true},{num:'#7',name:'Gavin Edwards',info:'6\'1 193 RS JR · Alvin, SC',starter:false}] },
+      { pos:'WLB', players:[{num:'#1',name:'Daniel Wingate',info:'6\'5 230 RS SR · Bowie, MD',starter:true},{num:'#23',name:'Keyshawn Flowers',info:'6\'2 220 JR',starter:false}] },
+      { pos:'MLB', players:[{num:'#3',name:'Trey Reddick',info:'6\'4 218 JR · Hampton, VA',starter:true},{num:'#32',name:'Carlton Smith',info:'6\'1 222 SO · Norfolk, VA',starter:false}] },
+      { pos:'N/S', players:[{num:'#6',name:'Dontay Joyner',info:'6\'0 180 SR · Lakeland, FL',starter:true},{num:'#32',name:'Carlton Smith',info:'6\'1 222 SO · Norfolk, VA',starter:false}] },
+      { pos:'SS', players:[{num:'#2/#13',name:'Lavain Scruggs',info:'5\'11 190 RS SR · Baltimore, MD',starter:true},{num:'#18',name:'Alex Moore',info:'6\'1 189 RS JR · Beltsville, MD',starter:false}] },
+    ],
+    dline: [
+      { pos:'LCB', players:[{num:'#4/#14',name:'Jamare Glasker',info:'6\'1 185 RS SR · Temple Hills, MD',starter:true},{num:'#15',name:'Lloyd Irvin III',info:'6\'3 196 RS SO · Springdale, MD',starter:false}] },
+      { pos:'RUSH', players:[{num:'#11/#25',name:'Sidney Stewart',info:'6\'2 255 SO · Joppa, MD',starter:true},{num:'#0',name:'Zion Elee',info:'6\'4 220 FR · Baltimore, MD',starter:false}] },
+      { pos:'NT', players:[{num:'#98',name:'Eyan Thomas',info:'6\'3 328 RS JR · Chichester, PA',starter:true},{num:'#50',name:'EJ Moore Jr.',info:'6\'1 292 JR · Decatur, GA',starter:false}] },
+      { pos:'DT', players:[{num:'#99',name:'Lavon Johnson',info:'6\'2 310 SR/TR · Allentown, PA',starter:true},{num:'#88',name:'Derrick LeBlanc',info:'6\'5 295 RS JR/TR · Opa-Locka, FL',starter:false}] },
+      { pos:'DE', players:[{num:'#9',name:'Zahir Mathis',info:'6\'6 222 SO · Philadelphia, PA',starter:true},{num:'#56',name:'DD Holmes',info:'6\'7 263 RS FR · Washington, D.C.',starter:false}] },
+      { pos:'RCB', players:[{num:'#24',name:'Amari Jackson',info:'5\'11 190 RS FR · McDonough, GA',starter:true},{num:'#6',name:'Dontay Joyner',info:'6\'0 180 SR · Lakeland, FL',starter:false}] },
+    ]
+  },
+  statLeaders: [
+    { cat:'Tackles', players:['#1 D. Wingate (102)','#2 L. Scruggs (72)','#32 C. Smith (64)'] },
+    { cat:'Sacks', players:['#11 S. Stewart (7)','#9 Z. Mathis (6)','#98 E. Thomas (1)'] },
+    { cat:'Interceptions', players:['#4 J. Glasker (4)','#2 L. Huskey (4)','Roland (3)'] },
+    { cat:'PBUs', players:['#6 D. Joyner (9)','#4 J. Glasker (6)','#33 M. Delhomme (4)'] },
+  ],
+  top3: [
+    { opp:'INDIANA', rush:367, pass:null, total:588 },
+    { opp:'RUTGERS', rush:256, pass:null, total:485 },
+    { opp:'MICHIGAN', rush:228, pass:null, total:null },
+    { opp:'MICHIGAN STATE', rush:null, pass:292, total:null },
+    { opp:'FLORIDA ATLANTIC', rush:null, pass:277, total:null },
+    { opp:'WASHINGTON', rush:null, pass:275, total:null },
+    { opp:'NEBRASKA', rush:null, pass:null, total:453 },
+  ],
+  runFamilies: [
+    { name:'WIDE ZONE', plays:80, eff:52 },
+    { name:'MID ZONE', plays:74, eff:59 },
+    { name:'TITE ZONE', plays:64, eff:56 },
+    { name:'GAP', plays:32, eff:56 },
+    { name:'DRAW', plays:13, eff:54 },
+    { name:'OPTION', plays:3, eff:0 },
+  ]
+};
+
+// ==================== RENDER ====================
+function renderAll() {
+  renderTopBar();
+  renderStatCards();
+  renderFastFacts();
+  renderExploits();
+  renderSitRef();
+  renderDCProfile();
+  renderStatsSection();
+  renderDepthChart();
+  renderStatLeaders();
+  renderRunEffBars();
+  initCharts();
+}
+
+function renderTopBar() {
+  document.getElementById('tbar-name').textContent = D.meta.opponent;
+  document.getElementById('tbar-info').textContent = D.meta.info;
+}
+
+function natClass(nat, dir) {
+  if (dir === 'good') return nat <= 25 ? 'ng' : nat <= 60 ? 'nw' : 'nb';
+  return nat <= 25 ? 'ng' : nat <= 60 ? 'nw' : 'nb';
+}
+function cardClass(nat, dir) {
+  if (dir === 'good') return nat <= 40 ? 'good' : 'warn';
+  return nat >= 80 ? 'bad' : nat >= 50 ? 'warn' : 'good';
+}
+
+function renderStatCards() {
+  const el = document.getElementById('stat-cards-row');
+  el.innerHTML = D.stats.map(s => {
+    const cc = cardClass(s.nat, s.dir);
+    const nc = natClass(s.nat, s.dir);
+    return `<div class="scard ${cc}">
+      <div class="sl">${s.label}</div>
+      <div class="sv">${s.val}</div>
+      <div class="sr">
+        <span class="rb c">B10: ${s.conf}th</span>
+        <span class="rb ${nc}">Nat: #${s.nat}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderFastFacts() {
+  const el = document.getElementById('fast-facts-list');
+  el.innerHTML = D.fastFacts.map((f,i) => `
+    <div class="ff">
+      <div class="ff-dot">${i+1}</div>
+      <div class="ff-text">${f}</div>
+    </div>`).join('');
+}
+
+function renderExploits() {
+  const el = document.getElementById('exploit-list');
+  el.innerHTML = D.exploits.map(e => `
+    <div class="ex-item">
+      <div class="ex-arr">▶</div>
+      <div class="ex-txt">${e.text}</div>
+    </div>`).join('');
+}
+
+function renderSitRef() {
+  const el = document.getElementById('sit-ref');
+  el.innerHTML = D.sitRef.map(s => `
+    <div class="card" style="padding:14px">
+      <div style="font-size:13px;font-weight:900;color:var(--m);margin-bottom:8px;border-bottom:2px solid var(--o);padding-bottom:4px">${s.sit}</div>
+      ${s.lines.map(l => `<div class="txt-sm" style="padding:3px 0;border-bottom:1px solid var(--bdr)">${l}</div>`).join('')}
+    </div>`).join('');
+}
+
+function renderDCProfile() {
+  document.getElementById('dc-name').textContent = D.dc.name;
+  document.getElementById('dc-title').textContent = D.dc.title;
+  document.getElementById('dc-bio').textContent = D.dc.bio;
+  const career = document.getElementById('dc-career');
+  career.innerHTML = D.dc.career.map(c => `
+    <div class="ct-item">
+      <div class="ct-yr">${c.years}</div>
+      <div class="ct-school">${c.school}</div>
+      <div class="ct-role">${c.role}</div>
+      <span class="badge ${c.nfl?'nfl':'col'}">${c.nfl?'NFL':'College'}</span>
+    </div>`).join('');
+}
+
+function renderStatsSection() {
+  const tbl = document.getElementById('stats-tbl');
+  tbl.innerHTML = `<thead><tr><th>Stat</th><th>#</th><th>B10 Rank</th><th>Nat. Rank</th></tr></thead>
+  <tbody>${D.stats.map(s => {
+    const nc = natClass(s.nat, s.dir);
+    return `<tr><td class="b">${s.label}</td><td>${s.val}</td><td>${s.conf}th</td><td><span class="rb ${nc}">#${s.nat}</span></td></tr>`;
+  }).join('')}</tbody>`;
+
+  const top3 = document.getElementById('top3-tbl');
+  top3.innerHTML = `<thead><tr><th>Team</th><th>Rush Yds</th><th>Pass Yds</th><th>Total Yds</th></tr></thead>
+  <tbody>
+    <tr><td class="b">Indiana</td><td class="b hlb">367</td><td>—</td><td class="b hlb">588</td></tr>
+    <tr><td class="b">Rutgers</td><td class="b">256</td><td>—</td><td class="b">485</td></tr>
+    <tr><td class="b">Michigan</td><td class="b">228</td><td>—</td><td>—</td></tr>
+    <tr><td class="b">Michigan State</td><td>—</td><td class="b hlb">292</td><td>—</td></tr>
+    <tr><td class="b">Florida Atlantic</td><td>—</td><td class="b">277</td><td>—</td></tr>
+    <tr><td class="b">Washington</td><td>—</td><td class="b">275</td><td>—</td></tr>
+    <tr><td class="b">Nebraska</td><td>—</td><td>—</td><td class="b">453</td></tr>
+  </tbody>`;
+}
+
+function renderStatLeaders() {
+  const el = document.getElementById('stat-leaders');
+  el.innerHTML = D.statLeaders.map(sl => `
+    <div class="card" style="padding:14px">
+      <div class="card-hd">${sl.cat}</div>
+      ${sl.players.map((p,i) => `<div class="txt-sm" style="padding:4px 0;border-bottom:1px solid var(--bdr)"><strong>${i+1}.</strong> ${p}</div>`).join('')}
+    </div>`).join('');
+}
+
+function renderDepthChart() {
+  ['secondary','dline'].forEach(key => {
+    const el = document.getElementById(`dc-${key}`);
+    el.innerHTML = D.depthChart[key].map(pos => `
+      <div class="dc-pos">
+        <div class="dc-lbl">${pos.pos}</div>
+        ${pos.players.map(p => `
+          <div class="dc-player${p.starter?' s':''}">
+            <span class="dc-num">${p.num}</span> <span class="dc-name">${p.name}</span><br>
+            <span class="dc-info">${p.info}</span>
+          </div>`).join('')}
+      </div>`).join('');
+  });
+}
+
+function renderRunEffBars() {
+  const el = document.getElementById('run-eff-bars');
+  const colors = { 0:'#1a8a3c', 52:'#e87722', 54:'#e87722', 56:'#dc2626', 59:'#991b1b' };
+  el.innerHTML = D.runFamilies.map(r => {
+    const c = r.eff >= 59 ? '#991b1b' : r.eff >= 56 ? '#dc2626' : r.eff >= 50 ? '#e87722' : '#1a8a3c';
+    const w = r.eff;
+    return `<div class="ebar">
+      <div class="ebar-lbl">${r.name}</div>
+      <div class="ebar-track">
+        <div class="ebar-fill" style="width:${w}%;background:${c}">
+          <span>${r.eff}%</span>
+        </div>
+      </div>
+      <div class="ebar-ct">${r.plays} plays</div>
+    </div>`;
+  }).join('');
+}
+
+// ==================== CHARTS ====================
+let charts = {};
+function destroyChart(id) { if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+function initCharts() {
+  // National rankings bar chart
+  const rEl = document.getElementById('ch-ranks');
+  if(rEl) {
+    destroyChart('ranks');
+    charts['ranks'] = new Chart(rEl, {
+      type:'bar',
+      data:{
+        labels: D.stats.map(s=>s.label),
+        datasets:[{
+          label:'National Rank (lower=better)',
+          data: D.stats.map(s=>s.nat),
+          backgroundColor: D.stats.map(s => s.nat<=25?'#166534':s.nat<=60?'#92400e':'#991b1b'),
+          borderRadius:4
+        }]
+      },
+      options:{
+        indexAxis:'y',
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`#${c.raw} nationally`}}},
+        scales:{x:{reverse:false,title:{display:true,text:'National Rank (lower is better)'},max:130},y:{ticks:{font:{size:11}}}}
+      }
+    });
+  }
+
+  // ND Formation chart
+  const ndFormEl = document.getElementById('ch-nd-form');
+  if(ndFormEl) {
+    destroyChart('nd-form');
+    const ndForms = ['TRIPS','DOS','DICE','BOX','DOCK','STRAY','TRIO','DAWN'];
+    const ndFreq = [20,12,9,7,7,5,4,4];
+    const ndBlitz = [42,44,33,48,30,31,47,36];
+    charts['nd-form'] = new Chart(ndFormEl, {
+      type:'bar',
+      data:{
+        labels:ndForms,
+        datasets:[
+          {label:'% of Snaps',data:ndFreq,backgroundColor:'#75162A',borderRadius:3,yAxisID:'y'},
+          {label:'Blitz %',data:ndBlitz,type:'line',borderColor:'#E87722',backgroundColor:'rgba(232,119,34,.15)',pointBackgroundColor:'#E87722',pointRadius:5,yAxisID:'y1',tension:.3}
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},
+        scales:{
+          y:{title:{display:true,text:'% of Snaps'},max:25},
+          y1:{position:'right',title:{display:true,text:'Blitz %'},max:65,grid:{drawOnChartArea:false}}
+        }
+      }
+    });
+  }
+
+  // ND Fronts donut
+  const ndFrontEl = document.getElementById('ch-nd-fronts-donut');
+  if(ndFrontEl) {
+    destroyChart('nd-fronts-donut');
+    charts['nd-fronts-donut'] = new Chart(ndFrontEl, {
+      type:'doughnut',
+      data:{labels:['EVEN 85%','ODD 9%','BEAR 4%','GAPS 1%'],datasets:[{data:[85,9,4,1],backgroundColor:['#75162A','#E87722','#4b5563','#9ca3af'],borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}
+    });
+  }
+
+  // ND Coverage donut
+  const ndCovEl = document.getElementById('ch-nd-cov-donut');
+  if(ndCovEl) {
+    destroyChart('nd-cov-donut');
+    charts['nd-cov-donut'] = new Chart(ndCovEl, {
+      type:'doughnut',
+      data:{labels:['Cov 3','Cov 0','Cov 4/6','Cov 1 Blitz','Cov 3 Zone','Cov 2','Cov 1'],datasets:[{data:[23,16,14,13,12,7,7],backgroundColor:['#75162A','#991b1b','#E87722','#cc6b1d','#4b5563','#6b7280','#9ca3af'],borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}}
+    });
+  }
+
+  // CD Formation chart
+  const cdFormEl = document.getElementById('ch-cd-form');
+  if(cdFormEl) {
+    destroyChart('cd-form');
+    charts['cd-form'] = new Chart(cdFormEl, {
+      type:'bar',
+      data:{
+        labels:['TRIPS','TRIO','DUO','DICE','STRAY','BOX','DIZZY','HOUSE'],
+        datasets:[
+          {label:'% of Snaps',data:[18,14,10,6,6,6,4,4],backgroundColor:'#75162A',borderRadius:3,yAxisID:'y'},
+          {label:'Blitz %',data:[48,50,47,50,40,40,29,57],type:'line',borderColor:'#E87722',backgroundColor:'rgba(232,119,34,.15)',pointBackgroundColor:'#E87722',pointRadius:5,yAxisID:'y1',tension:.3}
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},
+        scales:{
+          y:{title:{display:true,text:'% of Snaps'},max:25},
+          y1:{position:'right',title:{display:true,text:'Blitz %'},max:70,grid:{drawOnChartArea:false}}
+        }
+      }
+    });
+  }
+
+  // CD Fronts donut
+  const cdFrontEl = document.getElementById('ch-cd-fronts-donut');
+  if(cdFrontEl) {
+    destroyChart('cd-fronts-donut');
+    charts['cd-fronts-donut'] = new Chart(cdFrontEl, {
+      type:'doughnut',
+      data:{labels:['EVEN 77%','ODD 20%','GAPS 1%'],datasets:[{data:[77,20,1],backgroundColor:['#75162A','#E87722','#9ca3af'],borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}
+    });
+  }
+
+  // CD Coverage donut
+  const cdCovEl = document.getElementById('ch-cd-cov-donut');
+  if(cdCovEl) {
+    destroyChart('cd-cov-donut');
+    charts['cd-cov-donut'] = new Chart(cdCovEl, {
+      type:'doughnut',
+      data:{labels:['Cov 1','Cov 1 Blitz','Cov 3','Cov 2','Cov 0','Cov 4/6','Cov 2Z','Cov 2 MAX'],datasets:[{data:[16,15,13,12,10,8,7,5],backgroundColor:['#75162A','#991b1b','#E87722','#cc6b1d','#4b5563','#6b7280','#374151','#9ca3af'],borderWidth:2}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}}
+    });
+  }
+
+  // Run efficiency chart
+  const runEl = document.getElementById('ch-run-eff');
+  if(runEl) {
+    destroyChart('run-eff');
+    charts['run-eff'] = new Chart(runEl, {
+      type:'bar',
+      data:{
+        labels: D.runFamilies.map(r=>r.name),
+        datasets:[
+          {label:'Efficiency %',data:D.runFamilies.map(r=>r.eff),backgroundColor:D.runFamilies.map(r=>r.eff>=59?'#991b1b':r.eff>=50?'#E87722':'#166534'),borderRadius:4},
+          {label:'# Plays',data:D.runFamilies.map(r=>r.plays),type:'line',borderColor:'#4b5563',backgroundColor:'rgba(75,85,99,.1)',pointBackgroundColor:'#4b5563',pointRadius:4,yAxisID:'y1',tension:.3}
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},
+        scales:{
+          y:{title:{display:true,text:'Efficiency %'},max:70,min:0},
+          y1:{position:'right',title:{display:true,text:'# Plays'},grid:{drawOnChartArea:false}}
+        }
+      }
+    });
+  }
+}
+
+// ==================== PRINT ====================
+let currentSection = 'overview';
+
+function printDashboard() {
+  // Step 1: Make ALL sections and sub-content visible so charts can render
+  document.querySelectorAll('.sec').forEach(s => { s.style.display = 'block'; });
+  document.querySelectorAll('.stcon').forEach(s => { s.style.display = 'block'; });
+
+  // Step 2: Destroy all existing charts and reinitialize now that canvases are visible
+  Object.keys(charts).forEach(k => destroyChart(k));
+
+  // Step 3: Small delay for DOM layout, then init charts
+  setTimeout(() => {
+    initCharts();
+    // Step 4: Wait for charts to fully render, then open print dialog
+    setTimeout(() => {
+      window.addEventListener('afterprint', function restorePrint() {
+        window.removeEventListener('afterprint', restorePrint);
+        // Restore normal view after printing
+        document.querySelectorAll('.sec').forEach(s => { s.style.display = ''; });
+        document.querySelectorAll('.stcon').forEach(s => { s.style.display = ''; });
+        setTimeout(() => { show(currentSection); }, 50);
+      });
+      window.print();
+    }, 350);
+  }, 100);
+}
+
+// ==================== NAV ====================
+function show(id) {
+  currentSection = id;
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
+  document.querySelectorAll('.nav').forEach(n=>n.classList.remove('on'));
+  const el = document.getElementById('sec-'+id);
+  if(el) el.classList.add('on');
+  document.querySelectorAll('.nav').forEach(n=>{
+    if(n.getAttribute('onclick') && n.getAttribute('onclick').includes("'"+id+"'")){
+      n.classList.add('on');
+    }
+  });
+  // Re-init charts in case canvas wasn't visible on first render
+  setTimeout(initCharts, 50);
+}
+
+function switchStab(section, tabId) {
+  const tabsEl = document.getElementById(section+'-tabs');
+  if(!tabsEl) return;
+  tabsEl.querySelectorAll('.stab').forEach((t,i) => {
+    const isMatch = t.getAttribute('onclick') && t.getAttribute('onclick').includes("'"+tabId+"'");
+    t.classList.toggle('on', isMatch);
+  });
+  const sec = document.getElementById('sec-'+section);
+  if(!sec) return;
+  sec.querySelectorAll('.stcon').forEach(c=>{
+    c.classList.toggle('on', c.id === section+'-'+tabId);
+  });
+  setTimeout(initCharts, 50);
+}
+
+// ==================== SAVE / LOAD / SHARE ====================
+const STORAGE_KEY = 'vtScoutReports_v1';
+let activeReportId = null;
+
+function getSavedReports() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+
+function saveReport() {
+  const defaultName = D.meta.opponent || 'Report';
+  const name = prompt('Name this report (e.g., "Maryland 2026"):', defaultName);
+  if (!name || !name.trim()) return;
+
+  const reports = getSavedReports();
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+
+  // If same id exists (re-saving), update it; otherwise add new
+  const existingIdx = activeReportId ? reports.findIndex(r => r.id === activeReportId) : -1;
+  const report = {
+    id: existingIdx >= 0 ? activeReportId : 'r_' + Date.now(),
+    name: name.trim(),
+    date: dateStr,
+    data: JSON.parse(JSON.stringify(D))
+  };
+
+  if (existingIdx >= 0) {
+    reports[existingIdx] = report;
+  } else {
+    reports.unshift(report);
+  }
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+  activeReportId = report.id;
+  renderSavedReports();
+
+  // Update top bar to show saved indicator
+  const infoEl = document.getElementById('tbar-info');
+  if (infoEl && !infoEl.querySelector('.active-badge')) {
+    infoEl.insertAdjacentHTML('beforeend', `<span class="active-badge">✓ Saved</span>`);
+    setTimeout(() => { const b = infoEl.querySelector('.active-badge'); if(b) b.remove(); }, 2500);
+  }
+}
+
+function loadReport(id) {
+  const reports = getSavedReports();
+  const report = reports.find(r => r.id === id);
+  if (!report) return;
+
+  // Deep restore all data keys
+  Object.keys(report.data).forEach(k => {
+    D[k] = JSON.parse(JSON.stringify(report.data[k]));
+  });
+
+  activeReportId = id;
+  renderAll();
+  renderSavedReports(); // re-render to highlight active
+  show('overview');
+}
+
+function deleteReport(id, e) {
+  e.stopPropagation();
+  const reports = getSavedReports();
+  const report = reports.find(r => r.id === id);
+  if (!report) return;
+  if (!confirm(`Delete "${report.name}"?`)) return;
+
+  const updated = reports.filter(r => r.id !== id);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  if (activeReportId === id) activeReportId = null;
+  renderSavedReports();
+}
+
+function renderSavedReports() {
+  const el = document.getElementById('saved-reports-list');
+  if (!el) return;
+  const reports = getSavedReports();
+
+  if (reports.length === 0) {
+    el.innerHTML = '<div class="sr-empty">No saved reports yet</div>';
+    return;
+  }
+
+  el.innerHTML = reports.map(r => `
+    <div class="saved-report-item${r.id === activeReportId ? ' active-report' : ''}" onclick="loadReport('${r.id}')">
+      <span class="sr-icon">${r.id === activeReportId ? '▶' : '📋'}</span>
+      <div class="sr-info">
+        <div class="sr-name">${r.name}</div>
+        <div class="sr-date">${r.date}</div>
+      </div>
+      <span class="sr-del" onclick="deleteReport('${r.id}',event)" title="Delete">×</span>
+    </div>`).join('');
+}
+
+// SHARE — export a standalone HTML file with current D data baked in
+function shareStandaloneFile() {
+  document.getElementById('share-modal').classList.remove('show');
+  const dataJson = JSON.stringify(D);
+  // Get the full page HTML and inject current data into the report-data script tag
+  const html = document.documentElement.outerHTML;
+  const updated = html.replace(
+    /(<script id="report-data" type="application\/json">)[\s\S]*?(<\/script>)/,
+    `$1${dataJson}$2`
+  );
+  const blob = new Blob([updated], { type: 'text/html;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  const safeName = (D.meta.opponent || 'Report').replace(/[^a-zA-Z0-9]/g, '_');
+  a.download = `VT_Scout_${safeName}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+}
+
+function copyEmbedInstructions() {
+  const text = `VT Advance Scout Dashboard — Setup Instructions
+
+1. Open the .html file in any web browser (Chrome, Safari, Edge, Firefox).
+2. No login or internet connection required after first load.
+3. To load a new opponent each week: click "Import CSV" in the top bar and drop in the weekly CSV file.
+4. Download the CSV template from the top bar to see the required format.
+5. Click "💾 Save" to save any report — it stays in the sidebar for future reference.
+6. Click "🖨 Print" to generate a print-ready PDF of all sections.
+
+Questions? Contact your offensive coordinator.`;
+
+  navigator.clipboard.writeText(text).then(() => {
+    alert('✅ Instructions copied to clipboard!');
+    document.getElementById('share-modal').classList.remove('show');
+  }).catch(() => {
+    prompt('Copy these instructions:', text);
+  });
+}
+
+// On load: check if data was baked into the report-data tag (shared file)
+function loadBakedData() {
+  const tag = document.getElementById('report-data');
+  if (!tag) return;
+  const raw = tag.textContent.trim();
+  if (!raw || raw === 'null') return;
+  try {
+    const baked = JSON.parse(raw);
+    Object.keys(baked).forEach(k => { D[k] = baked[k]; });
+    // Mark as a shared/read-only view
+    const tbar = document.getElementById('tbar-info');
+    if (tbar) tbar.insertAdjacentHTML('beforeend', '<span class="active-badge" style="background:#dbeafe;color:#1e3a8a">📤 Shared View</span>');
+  } catch(e) { console.warn('Could not load baked data:', e); }
+}
+
+// ==================== FILE DROP ====================
+const fdrop = document.getElementById('fdrop');
+fdrop.addEventListener('dragover', e=>{e.preventDefault();fdrop.classList.add('drag')});
+fdrop.addEventListener('dragleave', ()=>fdrop.classList.remove('drag'));
+fdrop.addEventListener('drop', e=>{
+  e.preventDefault(); fdrop.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if(f) handleFile(f);
+});
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      parseCSV(e.target.result);
+      activeReportId = null; // new data = unsaved
+      document.getElementById('modal').classList.remove('show');
+      renderAll();
+      renderSavedReports();
+      alert('✅ New opponent data loaded! Click 💾 Save to keep this report.');
+    } catch(err) {
+      alert('❌ Error parsing CSV: ' + err.message + '\n\nPlease check the template format.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l=>l.trim() && !l.startsWith('#'));
+  lines.forEach(line => {
+    const cols = line.split(',').map(c=>c.trim().replace(/^"|"$/g,''));
+    const [sec, key, v1, v2, v3, v4] = cols;
+    if(!sec || !key) return;
+    switch(sec.toUpperCase()) {
+      case 'META':
+        if(key==='opponent') D.meta.opponent = v1;
+        if(key==='info') D.meta.info = v1;
+        break;
+      case 'STAT':
+        const si = D.stats.findIndex(s=>s.label===key);
+        if(si>=0){ D.stats[si].val=v1; D.stats[si].conf=parseInt(v2)||D.stats[si].conf; D.stats[si].nat=parseInt(v3)||D.stats[si].nat; }
+        break;
+      case 'FAST_FACT':
+        if(key==='clear') D.fastFacts=[];
+        else D.fastFacts.push(v1||key);
+        break;
+      case 'EXPLOIT':
+        if(key==='clear') D.exploits=[];
+        else D.exploits.push({text:v1||key});
+        break;
+      case 'DC':
+        if(key==='name') D.dc.name=v1;
+        if(key==='title') D.dc.title=v1;
+        if(key==='bio') D.dc.bio=v1;
+        break;
+    }
+  });
+}
+
+function downloadTemplate() {
+  const csv = `# VT Advance Scout Dashboard — CSV Import Template
+# Lines starting with # are comments and are ignored
+# Format: SECTION,KEY,VALUE1,VALUE2,VALUE3
+# Upload this file to populate the dashboard with new opponent data
+
+# ===== META =====
+META,opponent,OPPONENT NAME
+META,info,2026 Season · DC: Coach Name · Conference
+
+# ===== DEFENSIVE STATS (VALUE, B10 RANK, NAT RANK) =====
+STAT,Total Defense,000.0 YPG,00,00
+STAT,Scoring Defense,00.0 PPG,00,00
+STAT,Run Defense,000.0 YPG,00,00
+STAT,Pass Defense,000.0 YPG,00,00
+STAT,Takeaways,00,00,00
+STAT,3rd Down Def.,00.0%,00,00
+STAT,Red Zone Def.,00.0%,00,00
+
+# ===== FAST FACTS (one per line) =====
+FAST_FACT,clear
+FAST_FACT,1,"Fact 1 about base front and tendency"
+FAST_FACT,2,"Fact 2 about blitz rate"
+FAST_FACT,3,"Fact 3 about pressure location"
+FAST_FACT,4,"Fact 4 about coverage tendencies"
+FAST_FACT,5,"Fact 5 about run defense"
+FAST_FACT,6,"Fact 6 about red zone"
+
+# ===== EXPLOIT OPPORTUNITIES =====
+EXPLOIT,clear
+EXPLOIT,1,"Exploit opportunity 1 description"
+EXPLOIT,2,"Exploit opportunity 2 description"
+EXPLOIT,3,"Exploit opportunity 3 description"
+
+# ===== DC PROFILE =====
+DC,name,Coach Full Name
+DC,title,Defensive Coordinator & [Role] Coach
+DC,bio,"Full bio text here"
+`;
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'VT_Scout_Template.csv';
+  a.click();
+}
+
+// ==================== INIT ====================
+document.addEventListener('DOMContentLoaded', () => {
+  loadBakedData();   // load data if this is a shared/exported file
+  renderAll();
+  renderSavedReports();
+
+  // Close share modal on backdrop click
+  document.getElementById('share-modal').addEventListener('click', function(e) {
+    if (e.target === this) this.classList.remove('show');
+  });
+});
+</script>
+</body>
+</html>
