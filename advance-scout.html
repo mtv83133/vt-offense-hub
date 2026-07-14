@@ -8,16 +8,26 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --m:#75162A;--o:#E87722;--bg:#EFEFEF;--card:#fff;--txt:#1a1a1a;--muted:#6b7280;
+  --m:#861F41;--m-dark:#3D0A1E;--o:#E5751F;--bg:#EFEFEF;--card:#fff;--txt:#1a1a1a;--muted:#6b7280;
   --bdr:#e5e7eb;--good:#166534;--goodbg:#dcfce7;--warn:#92400e;--warnbg:#fef3c7;
   --bad:#991b1b;--badbg:#fee2e2;
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--txt);display:flex;min-height:100vh;font-size:14px}
 /* SIDEBAR */
-#sb{width:210px;min-width:210px;background:var(--m);position:fixed;top:0;left:0;height:100vh;overflow-y:auto;z-index:100;display:flex;flex-direction:column}
-.sb-logo{padding:18px 14px 14px;border-bottom:1px solid rgba(255,255,255,.15)}
-.sb-team{color:var(--o);font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
-.sb-sub{color:rgba(255,255,255,.5);font-size:10px;margin-top:2px}
+#sb{width:210px;min-width:210px;background:linear-gradient(180deg,var(--m-dark) 0%,var(--m) 100%);position:fixed;top:0;left:0;height:100vh;overflow-y:auto;z-index:100;display:flex;flex-direction:column}
+.sb-logo{padding:16px 14px;border-bottom:1px solid rgba(255,255,255,.15);display:flex;align-items:center;gap:10px}
+.sb-logo-badge{background:var(--o);color:var(--m-dark);font-size:15px;font-weight:900;width:32px;height:32px;border-radius:7px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid rgba(255,255,255,.2)}
+.sb-team{color:#fff;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
+.sb-sub{color:rgba(255,255,255,.5);font-size:10px;margin-top:1px}
+.year-sel{margin:10px 14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);border-radius:6px;color:#fff;font-size:12px;font-weight:700;padding:6px 8px;width:calc(100% - 28px)}
+.year-sel option{color:#1a1a1a}
+.no-data-state{text-align:center;padding:70px 24px}
+.no-data-state h2{font-size:16px;font-weight:800;color:var(--muted);margin-bottom:8px}
+.no-data-state p{font-size:12.5px;color:var(--muted);line-height:1.8;max-width:480px;margin:0 auto}
+.no-data-state .nd-icon{font-size:40px;margin-bottom:14px}
+.no-data-cta{margin-top:18px;display:inline-block;background:var(--m);color:#fff;padding:9px 20px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;border:none}
+.team-content{display:none}
+.team-content.on{display:block}
 .sb-sec{padding:12px 14px 3px;font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.35)}
 .nav{display:block;padding:9px 14px;color:rgba(255,255,255,.75);text-decoration:none;font-size:12.5px;font-weight:500;cursor:pointer;border-left:3px solid transparent;transition:all .1s}
 .nav:hover{background:rgba(255,255,255,.07);color:#fff}
@@ -260,17 +270,35 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <!-- SIDEBAR -->
 <nav id="sb">
   <div class="sb-logo">
-    <div class="sb-team">VT Football</div>
-    <div class="sb-sub">Advance Scout · Defense</div>
+    <div class="sb-logo-badge">VT</div>
+    <div>
+      <div class="sb-team">VT Football</div>
+      <div class="sb-sub">Advance Scout · Defense</div>
+    </div>
   </div>
   <a href="index.html" style="text-decoration:none;display:block;"><div class="nav">🏠 Team Hub</div></a>
   <a href="self-scout.html" style="text-decoration:none;display:block;"><div class="nav">🏈 Self Scout</div></a>
-  <div class="sb-sec">Overview</div>
+  <select class="year-sel" id="year-sel" onchange="selectYear(this.value)">
+    <option value="2026">2026 Season</option>
+  </select>
+  <div class="sb-sec">2026 Opponents</div>
+  <div class="nav opp-nav" id="opp-nav-VMI" onclick="selectTeam('VMI')">VMI</div>
+  <div class="nav opp-nav" id="opp-nav-ODU" onclick="selectTeam('ODU')">ODU</div>
+  <div class="nav opp-nav on" id="opp-nav-MARYLAND" onclick="selectTeam('MARYLAND')">Maryland</div>
+  <div class="nav opp-nav" id="opp-nav-BOSTON_COLLEGE" onclick="selectTeam('BOSTON_COLLEGE')">Boston College</div>
+  <div class="nav opp-nav" id="opp-nav-PITT" onclick="selectTeam('PITT')">Pitt</div>
+  <div class="nav opp-nav" id="opp-nav-CAL" onclick="selectTeam('CAL')">Cal</div>
+  <div class="nav opp-nav" id="opp-nav-GEORGIA_TECH" onclick="selectTeam('GEORGIA_TECH')">Georgia Tech</div>
+  <div class="nav opp-nav" id="opp-nav-CLEMSON" onclick="selectTeam('CLEMSON')">Clemson</div>
+  <div class="nav opp-nav" id="opp-nav-SMU" onclick="selectTeam('SMU')">SMU</div>
+  <div class="nav opp-nav" id="opp-nav-STANFORD" onclick="selectTeam('STANFORD')">Stanford</div>
+  <div class="nav opp-nav" id="opp-nav-MIAMI" onclick="selectTeam('MIAMI')">Miami</div>
+  <div class="nav opp-nav" id="opp-nav-UVA" onclick="selectTeam('UVA')">UVA</div>
+  <div class="sb-sec">Report Sections</div>
   <div class="nav on" onclick="show('overview')">📋 Overview</div>
   <div class="nav" onclick="show('dc')">👤 DC Profile</div>
   <div class="nav" onclick="show('stats')">📊 Def. Statistics</div>
   <div class="nav" onclick="show('depth')">🏈 Depth Chart</div>
-  <div class="sb-sec">Scheme</div>
   <div class="nav" onclick="show('run')">🏃 Run Defense</div>
   <div class="nav" onclick="show('nd')">Normal Downs</div>
   <div class="nav sub" onclick="show('nd');switchStab('nd','formations')">↳ Formations</div>
@@ -284,7 +312,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <div class="nav sub" onclick="show('cd');switchStab('cd','blitz')">↳ Blitz</div>
   <div class="nav" onclick="show('rz')">🎯 Red Zone</div>
   <div class="nav" onclick="show('gl')">🏁 Goal Line</div>
-  <div class="sb-sec">Saved Reports</div>
+  <div class="sb-sec">Saved Local Drafts</div>
   <div class="sb-save-btn" onclick="saveReport()">💾 Save Current Report</div>
   <div id="saved-reports-list"><div class="sr-empty">No saved reports yet</div></div>
 </nav>
@@ -306,6 +334,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 
   <!-- CONTENT -->
   <div id="content">
+
+    <div id="team-content-MARYLAND" class="team-content on">
 
     <!-- ===== OVERVIEW ===== -->
     <div class="sec on" id="sec-overview">
@@ -1105,6 +1135,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     </div>
 
 
+  </div><!-- /team-content-MARYLAND -->
+
+    <div id="team-content-BLANK" class="team-content">
+      <div class="no-data-state">
+        <div class="nd-icon">🏈</div>
+        <h2 id="blank-team-name">No Data Yet</h2>
+        <p>This opponent's scouting report hasn't been built yet. When it's game week, send the opponent's PFF/XOS export to Claude and it'll bake the full report in here — Overview, DC Profile, Statistics, Depth Chart, Run Defense, Normal &amp; Conversion Downs, Red Zone, and Goal Line — and it'll stay here permanently, even weeks later.</p>
+        <div class="no-data-cta" onclick="document.getElementById('modal').classList.add('show')">⬆ Import CSV for This Team</div>
+      </div>
+    </div>
+
   </div><!-- /content -->
 </div><!-- /main -->
 
@@ -1254,6 +1295,56 @@ const D = {
     { name:'OPTION', plays:3, eff:0 },
   ]
 };
+
+// ==================== TEAM / YEAR NAV ====================
+const TEAM_LABELS = {
+  VMI: "VMI",
+  ODU: "ODU",
+  MARYLAND: "Maryland",
+  BOSTON_COLLEGE: "Boston College",
+  PITT: "Pitt",
+  CAL: "Cal",
+  GEORGIA_TECH: "Georgia Tech",
+  CLEMSON: "Clemson",
+  SMU: "SMU",
+  STANFORD: "Stanford",
+  MIAMI: "Miami",
+  UVA: "UVA"
+};
+const TEAMS_WITH_DATA = ["MARYLAND"]; // teams with a built report; extend as data is baked in
+let currentTeam = "MARYLAND";
+let currentYear = "2026";
+
+function selectTeam(key) {
+  currentTeam = key;
+  document.querySelectorAll(".opp-nav").forEach(function(n){ n.classList.remove("on"); });
+  const navEl = document.getElementById("opp-nav-" + key);
+  if (navEl) navEl.classList.add("on");
+
+  const hasData = TEAMS_WITH_DATA.indexOf(key) !== -1;
+  document.querySelectorAll(".team-content").forEach(function(c){ c.classList.remove("on"); });
+
+  if (hasData) {
+    const el = document.getElementById("team-content-" + key);
+    if (el) el.classList.add("on");
+    const nameEl = document.getElementById("tbar-name");
+    if (nameEl) nameEl.textContent = TEAM_LABELS[key] || key;
+  } else {
+    document.getElementById("team-content-BLANK").classList.add("on");
+    const blankName = document.getElementById("blank-team-name");
+    if (blankName) blankName.textContent = (TEAM_LABELS[key] || key) + " — No Data Yet";
+    const nameEl = document.getElementById("tbar-name");
+    if (nameEl) nameEl.textContent = TEAM_LABELS[key] || key;
+    const infoEl = document.getElementById("tbar-info");
+    if (infoEl) infoEl.textContent = currentYear + " Season · Awaiting scouting data";
+  }
+  show("overview");
+}
+
+function selectYear(year) {
+  currentYear = year;
+  // Future years will swap in a different TEAMS_WITH_DATA / dataset per year here.
+}
 
 // ==================== RENDER ====================
 function renderAll() {
@@ -1873,6 +1964,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadBakedData();   // load data if this is a shared/exported file
   renderAll();
   renderSavedReports();
+  selectTeam('MARYLAND');
 
   // Close share modal on backdrop click
   document.getElementById('share-modal').addEventListener('click', function(e) {
