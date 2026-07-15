@@ -193,9 +193,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   #tbar{position:static!important;box-shadow:none!important;border-bottom:2px solid var(--m)!important;padding:8px 16px!important}
   #tbar button,#tbar .btn{display:none!important}
   .tbar-name{font-size:18px!important}
-  /* ALL SECTIONS VISIBLE — each starts on its own page, never bleeds over */
-  .sec{display:block!important;page-break-before:always;break-before:page;page-break-inside:avoid;break-inside:avoid}
-  .sec:first-of-type{page-break-before:avoid;break-before:avoid}
+  /* SECTIONS: only print what's real for the CURRENTLY SELECTED team.
+     Shallow sections (Overview/DC/Stats/Depth) always bulk-print since they're always
+     accurate per-team. Deep scheme sections (Run/ND/CD/RZ/GL) only bulk-print when the
+     selected team actually has a built scheme breakdown — otherwise they stay hidden so
+     no other team's leftover content can ever show up in a printout. The "not built yet"
+     placeholder only prints if it's literally the page you're looking at. */
+  .sec{display:none!important}
+  #sec-overview,#sec-dc,#sec-stats,#sec-depth{display:block!important;page-break-before:always;break-before:page;page-break-inside:avoid;break-inside:avoid}
+  #sec-overview{page-break-before:avoid;break-before:avoid}
+  body:not(.no-deep-data) #sec-run,
+  body:not(.no-deep-data) #sec-nd,
+  body:not(.no-deep-data) #sec-cd,
+  body:not(.no-deep-data) #sec-rz,
+  body:not(.no-deep-data) #sec-gl{display:block!important;page-break-before:always;break-before:page;page-break-inside:avoid;break-inside:avoid}
+  #sec-deep-pending.on{display:block!important;page-break-before:always;break-before:page;page-break-inside:avoid;break-inside:avoid}
   .sec-hd{page-break-after:avoid;break-after:avoid}
   /* SUB-TABS: hide tab buttons, show all content */
   .stabs{display:none!important}
@@ -1391,7 +1403,13 @@ const MARYLAND_DATA = {
     { name:'GAP', plays:32, eff:56 },
     { name:'DRAW', plays:13, eff:54 },
     { name:'OPTION', plays:3, eff:0 },
-  ]
+  ],
+  ndFormationChart: { labels:['TRIPS','DOS','DICE','BOX','DOCK','STRAY','TRIO','DAWN'], freq:[20,12,9,7,7,5,4,4], blitz:[42,44,33,48,30,31,47,36] },
+  ndFrontsDonut: { labels:['EVEN 85%','ODD 9%','BEAR 4%','GAPS 1%'], data:[85,9,4,1] },
+  ndCovDonut: { labels:['Cov 3','Cov 0','Cov 4/6','Cov 1 Blitz','Cov 3 Zone','Cov 2','Cov 1'], data:[23,16,14,13,12,7,7] },
+  cdFormationChart: { labels:['TRIPS','TRIO','DUO','DICE','STRAY','BOX','DIZZY','HOUSE'], freq:[18,14,10,6,6,6,4,4], blitz:[48,50,47,50,40,40,29,57] },
+  cdFrontsDonut: { labels:['EVEN 77%','ODD 20%','GAPS 1%'], data:[77,20,1] },
+  cdCovDonut: { labels:['Cov 1','Cov 1 Blitz','Cov 3','Cov 2','Cov 0','Cov 4/6','Cov 2Z','Cov 2 MAX'], data:[16,15,13,12,10,8,7,5] }
 };
 
 // ==================== TEAM / YEAR NAV ====================
@@ -1478,6 +1496,8 @@ function selectTeam(key) {
   document.querySelectorAll(".opp-nav").forEach(function(n){ n.classList.remove("on"); });
   const navEl = document.getElementById("opp-nav-" + key);
   if (navEl) navEl.classList.add("on");
+
+  document.body.classList.toggle("no-deep-data", !hasDeepData(key));
 
   _applyDeepContent(key);
   renderAll();
@@ -1668,99 +1688,110 @@ function initCharts() {
     });
   }
 
-  // ND Formation chart
+  // ND Formation chart -- team-scoped, driven by D.ndFormationChart (no hardcoded team data)
   const ndFormEl = document.getElementById('ch-nd-form');
   if(ndFormEl) {
     destroyChart('nd-form');
-    const ndForms = ['TRIPS','DOS','DICE','BOX','DOCK','STRAY','TRIO','DAWN'];
-    const ndFreq = [20,12,9,7,7,5,4,4];
-    const ndBlitz = [42,44,33,48,30,31,47,36];
-    charts['nd-form'] = new Chart(ndFormEl, {
-      type:'bar',
-      data:{
-        labels:ndForms,
-        datasets:[
-          {label:'% of Snaps',data:ndFreq,backgroundColor:'#75162A',borderRadius:3,yAxisID:'y'},
-          {label:'Blitz %',data:ndBlitz,type:'line',borderColor:'#E87722',backgroundColor:'rgba(232,119,34,.15)',pointBackgroundColor:'#E87722',pointRadius:5,yAxisID:'y1',tension:.3}
-        ]
-      },
-      options:{
-        responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},
-        scales:{
-          y:{title:{display:true,text:'% of Snaps'},max:25},
-          y1:{position:'right',title:{display:true,text:'Blitz %'},max:65,grid:{drawOnChartArea:false}}
+    if (D.ndFormationChart) {
+      const nf = D.ndFormationChart;
+      charts['nd-form'] = new Chart(ndFormEl, {
+        type:'bar',
+        data:{
+          labels: nf.labels,
+          datasets:[
+            {label:'% of Snaps',data:nf.freq,backgroundColor:'#75162A',borderRadius:3,yAxisID:'y'},
+            {label:'Blitz %',data:nf.blitz,type:'line',borderColor:'#E87722',backgroundColor:'rgba(232,119,34,.15)',pointBackgroundColor:'#E87722',pointRadius:5,yAxisID:'y1',tension:.3}
+          ]
+        },
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},
+          scales:{
+            y:{title:{display:true,text:'% of Snaps'},max:25},
+            y1:{position:'right',title:{display:true,text:'Blitz %'},max:65,grid:{drawOnChartArea:false}}
+          }
         }
-      }
-    });
+      });
+    }
   }
 
-  // ND Fronts donut
+  // ND Fronts donut -- team-scoped, driven by D.ndFrontsDonut
   const ndFrontEl = document.getElementById('ch-nd-fronts-donut');
   if(ndFrontEl) {
     destroyChart('nd-fronts-donut');
-    charts['nd-fronts-donut'] = new Chart(ndFrontEl, {
-      type:'doughnut',
-      data:{labels:['EVEN 85%','ODD 9%','BEAR 4%','GAPS 1%'],datasets:[{data:[85,9,4,1],backgroundColor:['#75162A','#E87722','#4b5563','#9ca3af'],borderWidth:2}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}
-    });
+    if (D.ndFrontsDonut) {
+      charts['nd-fronts-donut'] = new Chart(ndFrontEl, {
+        type:'doughnut',
+        data:{labels:D.ndFrontsDonut.labels,datasets:[{data:D.ndFrontsDonut.data,backgroundColor:['#75162A','#E87722','#4b5563','#9ca3af'],borderWidth:2}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}
+      });
+    }
   }
 
-  // ND Coverage donut
+  // ND Coverage donut -- team-scoped, driven by D.ndCovDonut
   const ndCovEl = document.getElementById('ch-nd-cov-donut');
   if(ndCovEl) {
     destroyChart('nd-cov-donut');
-    charts['nd-cov-donut'] = new Chart(ndCovEl, {
-      type:'doughnut',
-      data:{labels:['Cov 3','Cov 0','Cov 4/6','Cov 1 Blitz','Cov 3 Zone','Cov 2','Cov 1'],datasets:[{data:[23,16,14,13,12,7,7],backgroundColor:['#75162A','#991b1b','#E87722','#cc6b1d','#4b5563','#6b7280','#9ca3af'],borderWidth:2}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}}
-    });
+    if (D.ndCovDonut) {
+      charts['nd-cov-donut'] = new Chart(ndCovEl, {
+        type:'doughnut',
+        data:{labels:D.ndCovDonut.labels,datasets:[{data:D.ndCovDonut.data,backgroundColor:['#75162A','#991b1b','#E87722','#cc6b1d','#4b5563','#6b7280','#9ca3af'],borderWidth:2}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}}
+      });
+    }
   }
 
-  // CD Formation chart
+  // CD Formation chart -- team-scoped, driven by D.cdFormationChart
   const cdFormEl = document.getElementById('ch-cd-form');
   if(cdFormEl) {
     destroyChart('cd-form');
-    charts['cd-form'] = new Chart(cdFormEl, {
-      type:'bar',
-      data:{
-        labels:['TRIPS','TRIO','DUO','DICE','STRAY','BOX','DIZZY','HOUSE'],
-        datasets:[
-          {label:'% of Snaps',data:[18,14,10,6,6,6,4,4],backgroundColor:'#75162A',borderRadius:3,yAxisID:'y'},
-          {label:'Blitz %',data:[48,50,47,50,40,40,29,57],type:'line',borderColor:'#E87722',backgroundColor:'rgba(232,119,34,.15)',pointBackgroundColor:'#E87722',pointRadius:5,yAxisID:'y1',tension:.3}
-        ]
-      },
-      options:{
-        responsive:true,maintainAspectRatio:false,
-        plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},
-        scales:{
-          y:{title:{display:true,text:'% of Snaps'},max:25},
-          y1:{position:'right',title:{display:true,text:'Blitz %'},max:70,grid:{drawOnChartArea:false}}
+    if (D.cdFormationChart) {
+      const cf = D.cdFormationChart;
+      charts['cd-form'] = new Chart(cdFormEl, {
+        type:'bar',
+        data:{
+          labels: cf.labels,
+          datasets:[
+            {label:'% of Snaps',data:cf.freq,backgroundColor:'#75162A',borderRadius:3,yAxisID:'y'},
+            {label:'Blitz %',data:cf.blitz,type:'line',borderColor:'#E87722',backgroundColor:'rgba(232,119,34,.15)',pointBackgroundColor:'#E87722',pointRadius:5,yAxisID:'y1',tension:.3}
+          ]
+        },
+        options:{
+          responsive:true,maintainAspectRatio:false,
+          plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},
+          scales:{
+            y:{title:{display:true,text:'% of Snaps'},max:25},
+            y1:{position:'right',title:{display:true,text:'Blitz %'},max:70,grid:{drawOnChartArea:false}}
+          }
         }
-      }
-    });
+      });
+    }
   }
 
-  // CD Fronts donut
+  // CD Fronts donut -- team-scoped, driven by D.cdFrontsDonut
   const cdFrontEl = document.getElementById('ch-cd-fronts-donut');
   if(cdFrontEl) {
     destroyChart('cd-fronts-donut');
-    charts['cd-fronts-donut'] = new Chart(cdFrontEl, {
-      type:'doughnut',
-      data:{labels:['EVEN 77%','ODD 20%','GAPS 1%'],datasets:[{data:[77,20,1],backgroundColor:['#75162A','#E87722','#9ca3af'],borderWidth:2}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}
-    });
+    if (D.cdFrontsDonut) {
+      charts['cd-fronts-donut'] = new Chart(cdFrontEl, {
+        type:'doughnut',
+        data:{labels:D.cdFrontsDonut.labels,datasets:[{data:D.cdFrontsDonut.data,backgroundColor:['#75162A','#E87722','#9ca3af'],borderWidth:2}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}
+      });
+    }
   }
 
-  // CD Coverage donut
+  // CD Coverage donut -- team-scoped, driven by D.cdCovDonut
   const cdCovEl = document.getElementById('ch-cd-cov-donut');
   if(cdCovEl) {
     destroyChart('cd-cov-donut');
-    charts['cd-cov-donut'] = new Chart(cdCovEl, {
-      type:'doughnut',
-      data:{labels:['Cov 1','Cov 1 Blitz','Cov 3','Cov 2','Cov 0','Cov 4/6','Cov 2Z','Cov 2 MAX'],datasets:[{data:[16,15,13,12,10,8,7,5],backgroundColor:['#75162A','#991b1b','#E87722','#cc6b1d','#4b5563','#6b7280','#374151','#9ca3af'],borderWidth:2}]},
-      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}}
-    });
+    if (D.cdCovDonut) {
+      charts['cd-cov-donut'] = new Chart(cdCovEl, {
+        type:'doughnut',
+        data:{labels:D.cdCovDonut.labels,datasets:[{data:D.cdCovDonut.data,backgroundColor:['#75162A','#991b1b','#E87722','#cc6b1d','#4b5563','#6b7280','#374151','#9ca3af'],borderWidth:2}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10}}}}}
+      });
+    }
   }
 
   // Run efficiency chart
@@ -1842,6 +1873,11 @@ function show(id) {
 }
 
 function switchStab(section, tabId) {
+  // Defensive: the 5 deep sections (run/nd/cd/rz/gl) only contain real,
+  // team-scoped content when hasDeepData(currentTeam) is true. If it's
+  // false, whatever markup is sitting in sec-<section> is stale leftover
+  // from whichever team was rendered there last, so refuse to reveal it.
+  if (DEEP_SECTION_IDS.indexOf(section) !== -1 && !hasDeepData(currentTeam)) return;
   const tabsEl = document.getElementById(section+'-tabs');
   if(!tabsEl) return;
   tabsEl.querySelectorAll('.stab').forEach((t,i) => {
