@@ -1612,8 +1612,6 @@ function _initPeriodCharts(tabName, d) {
 // ANALYSIS TAB — Tendencies · Combinations · Script & Tempo
 // ══════════════════════════════════════════════════════════════════════════════
 var _analysisSubTab = 'tendencies';
-var _uploadedLineups = null;   // {skill:[], ol:[]} computed from drag-and-drop CSV
-var _csvFileName = '';
 function _getSituationData() {
   if (_activePeriod==='spring') return {down:PLAYER_DATA.down_data||[],third:PLAYER_DATA.third_data||[],pers:PLAYER_DATA.pers_data||[],group:PLAYER_DATA.group_data||[]};
   var d=getActiveData(); if(!d) return {down:[],third:[],pers:[],group:[]};
@@ -1630,6 +1628,10 @@ function switchAnalysis(sub) {
 function _renderAnalysisTab() {
   var el=document.getElementById('analysis-content'); if(!el) return;
   var data=getActiveData();
+  if (_activePeriod !== 'spring' && !data) {
+    el.innerHTML = '<div class="no-data-state"><h2>No Data Loaded Yet</h2><p>This practice/period has no data yet, so there is nothing to analyze here. Spring 2026 is the only period with data loaded so far.</p></div>';
+    return;
+  }
   el.innerHTML=_buildAnalysis(data);
   document.querySelectorAll('#analysis-pane .asec').forEach(function(s){s.style.display='none';});
   var sec=document.getElementById('asec-'+_analysisSubTab); if(sec) sec.style.display='block';
@@ -1655,8 +1657,10 @@ function _buildTendencies(d) {
   var n_total=d?(d.n||1):916;
   var runFams=d?(d.run_families||[]):[];
   var passCons=d?(d.pass_concepts||[]):[];
-  if(!runFams.length && typeof RUN_DATA!=='undefined') runFams=RUN_DATA.families.map(function(f){return {name:f.name,n:f.total.n,avg:f.total.avg,eff:f.total.eff,expl:f.total.expl,neg:f.total.neg};});
-  if(!passCons.length && typeof PW_DATA!=='undefined') passCons=PW_DATA.pass.concepts.map(function(c){return {name:c.name,n:c.n,avg:c.avg,eff:c.eff,expl:c.expl,neg:c.neg,comp:c.comp};});
+  if(_activePeriod==='spring'){
+    if(!runFams.length && typeof RUN_DATA!=='undefined') runFams=RUN_DATA.families.map(function(f){return {name:f.name,n:f.total.n,avg:f.total.avg,eff:f.total.eff,expl:f.total.expl,neg:f.total.neg};});
+    if(!passCons.length && typeof PW_DATA!=='undefined') passCons=PW_DATA.pass.concepts.map(function(c){return {name:c.name,n:c.n,avg:c.avg,eff:c.eff,expl:c.expl,neg:c.neg,comp:c.comp};});
+  }
   h+='<div class="g2">';
   h+='<div class="card"><div class="card-title">Run vs Pass by Down</div>';
   if(downData&&downData.length){
@@ -1838,46 +1842,23 @@ function _rosterChip(jersey, slotLabel) {
 function _buildCombinations(d) {
   var h='';
   h+='<div class="sec-hdr"><div class="sdot" style="background:var(--maroon)"></div>11-Man Lineup Combinations — Who Was On The Field &amp; What Worked</div>';
-  // ── Upload zone ─────────────────────────────────────────────────────────
-  h+='<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:14px;align-items:flex-start">';
-  h+='<div style="flex:1"><div class="csv-drop-zone" id="csvDropZone" ';
-  h+='onclick="document.getElementById(\'csvFileInput\').click()" ';
-  h+='ondragover="event.preventDefault();this.classList.add(\'drag-over\')" ';
-  h+='ondragleave="this.classList.remove(\'drag-over\')" ';
-  h+='ondrop="handleXOSCSVDrop(event)">';
-  h+='<div class="csv-drop-icon">📊</div>';
-  h+='<div class="csv-drop-ttl">Drop XOS 61-Column CSV Export</div>';
-  h+='<div class="csv-drop-sub">Instantly shows every unique 11-man group that took the field,<br>what plays they ran, how often, and which ones worked.</div>';
-  h+='</div>';
-  h+='<input type="file" id="csvFileInput" accept=".csv" style="display:none" onchange="handleXOSCSVFile(this.files[0])">';
-  h+='<div id="csv-lineup-status"></div></div>';
-  h+='<div style="flex:0 0 200px;background:var(--card3);border-radius:8px;padding:12px;font-size:10px;color:var(--dim);line-height:1.9">';
-  h+='<b style="color:var(--orange);font-size:11px">📁 How to load data</b><br>';
-  h+='<b>Option 1 (live):</b> Drop CSV here → processes instantly, no Python needed.<br>';
-  h+='<b>Option 2 (permanent):</b> Run <code style="color:var(--orange)">python refresh.py your_export.csv</code> to bake data into the HTML.<br><br>';
-  h+='<span style="color:var(--muted)">Required columns:<br>pff_QB · pff_RBS<br>POSITION_Y/F/Z/X<br>Jersey #2–6 (OL)<br>Play Call · Gain</span>';
-  h+='</div></div>';
   // ── Status bar if data loaded ────────────────────────────────────────────
   var lineups=null;
   // Spring: pre-computed from actual Spring CSV (baked into PLAYER_DATA)
   if(_activePeriod==='spring'&&PLAYER_DATA.skill_lineups&&PLAYER_DATA.skill_lineups.length){
     lineups={skill:PLAYER_DATA.skill_lineups,ol:PLAYER_DATA.ol_lineups||[]};
     h+='<div class="csv-status-bar" style="margin-bottom:12px"><span style="font-size:16px">🌸</span> <span>Spring 2026 lineup data · <b>'+lineups.skill.length+'</b> unique skill combos computed from '+PLAYER_DATA.skill_lineups.reduce(function(s,x){return s+x.n;},0)+' plays</span></div>';
-  }
-  // Uploaded CSV always overrides baked data
-  if(_uploadedLineups){
-    lineups=_uploadedLineups;
-    h+='<div class="csv-status-bar" style="margin-bottom:12px"><span style="font-size:16px">✅</span> <span>Lineup data from <b>'+_csvFileName+'</b> · <b>'+lineups.skill.length+'</b> skill combos · <b>'+lineups.ol.length+'</b> OL combos</span> <button onclick="_uploadedLineups=null;_csvFileName=\'\';_renderAnalysisTab();" style="margin-left:auto;background:none;border:1px solid var(--border);color:var(--muted);font-size:10px;padding:3px 8px;border-radius:4px;cursor:pointer">✕ Clear</button></div>';
   } else if(d&&d.skill_lineups&&d.skill_lineups.length){
     lineups={skill:d.skill_lineups,ol:d.ol_lineups||[]};
     h+='<div class="csv-status-bar" style="margin-bottom:12px"><span style="font-size:16px">📊</span> <span>Lineup data from baked export · <b>'+lineups.skill.length+'</b> unique skill combos</span></div>';
   }
   if(lineups){ h+=_buildSkillLineups(lineups.skill); h+=_buildOLLineups(lineups.ol); }
+  else { h+='<div style="color:var(--muted);font-size:11px;padding:8px 0">No lineup data for this practice yet — send the XOS export to Claude to bake it in.</div>'; }
   return h;
 }
 function _buildSkillLineups(lineups) {
   var h='<div class="sec-hdr"><div class="sdot" style="background:var(--orange)"></div>Skill Group Combos — Most Used First</div>';
-  if(!lineups||!lineups.length) return h+'<div style="color:var(--muted);font-size:11px;padding:8px 0">Upload CSV to see lineup combinations.</div>';
+  if(!lineups||!lineups.length) return h;
   var maxN=lineups[0].n||1;
   lineups.slice(0,16).forEach(function(lu,idx){
     var rp=lu.n>0?Math.round(lu.run_n/lu.n*100):0; var pp=100-rp;
@@ -1947,133 +1928,6 @@ function _buildOLLineups(olLineups) {
   });
   h+='</tbody></table></div>';
   return h;
-}
-// ── XOS CSV UPLOAD & PROCESSING ──────────────────────────────────────────────
-function handleXOSCSVDrop(event) {
-  event.preventDefault();
-  var dz=document.getElementById('csvDropZone'); if(dz) dz.classList.remove('drag-over');
-  var file=event.dataTransfer&&event.dataTransfer.files[0]; if(file) handleXOSCSVFile(file);
-}
-function handleXOSCSVFile(file) {
-  if(!file) return;
-  var statusEl=document.getElementById('csv-lineup-status');
-  if(statusEl) statusEl.innerHTML='<div class="csv-status-bar">⏳ Parsing <b>'+file.name+'</b>…</div>';
-  var reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      var rows=_parseCSVText(e.target.result);
-      if(!rows||!rows.length){if(statusEl) statusEl.innerHTML='<div class="csv-status-bar">❌ No data rows found. Check file format.</div>';return;}
-      var combos=_computeLineupCombos(rows);
-      _uploadedLineups=combos; _csvFileName=file.name;
-      _renderAnalysisTab();
-    } catch(ex){
-      if(statusEl) statusEl.innerHTML='<div class="csv-status-bar">❌ Parse error: '+ex.message+'</div>';
-    }
-  };
-  reader.readAsText(file,'utf-8');
-}
-function _parseCSVText(text) {
-  var lines=text.split(/\r?\n/); if(!lines.length) return [];
-  var headerLine=''; var dataStart=0;
-  for(var i=0;i<Math.min(lines.length,5);i++){if(lines[i].trim()){headerLine=lines[i];dataStart=i+1;break;}}
-  if(!headerLine) return [];
-  var headers=_csvSplitRow(headerLine);
-  var rows=[];
-  for(var j=dataStart;j<lines.length;j++){
-    var line=lines[j]; if(!line.trim()) continue;
-    var vals=_csvSplitRow(line);
-    var row={}; headers.forEach(function(hh,k){row[hh.trim()]=(vals[k]||'').trim();});
-    rows.push(row);
-  }
-  return rows;
-}
-function _csvSplitRow(line) {
-  var result=[]; var cur=''; var inQ=false;
-  for(var i=0;i<line.length;i++){
-    var c=line[i];
-    if(c==='"'){if(inQ&&line[i+1]==='"'){cur+='"';i++;}else{inQ=!inQ;}}
-    else if(c===','&&!inQ){result.push(cur);cur='';}
-    else{cur+=c;}
-  }
-  result.push(cur); return result;
-}
-function _computeLineupCombos(rows) {
-  var s=rows[0]||{};
-  function detectCol(patterns){
-    return Object.keys(s).filter(function(k){return patterns.some(function(p){return p.test(k);});})[0]||'';
-  }
-  var colQB  =detectCol([/pff_QB/i]);
-  var colRB  =detectCol([/pff_RBS/i]);
-  var colY   =detectCol([/POSITION_Y/i]);
-  var colF   =detectCol([/POSITION_F/i]);
-  var colZ   =detectCol([/POSITION_Z/i]);
-  var colX   =detectCol([/POSITION_X/i]);
-  var colOL  =[2,3,4,5,6].map(function(n){return detectCol([new RegExp('Jersey #'+n+'\\b','i')])||('Jersey #'+n);});
-  var colGain=detectCol([/^Gain$/i,/^Net Yards$/i,/^Yards$/i,/^YDG$/i]);
-  var colCall=detectCol([/Play Call/i,/PlayCall/i]);
-  var colType=detectCol([/Play Type/i,/PlayType/i,/play_type/i]);
-  var colPers=detectCol([/pff_OFFPERSONNEL/i,/Personnel/i]);
-  var colEff =detectCol([/^Eff$/i,/^Off Eff$/i,/^Efficiency$/i]);
-  var colExpl=detectCol([/^Expl$/i,/^Explosive$/i]);
-  var colNeg =detectCol([/^Neg$/i,/^Negative$/i]);
-  var skillMap={}; var olMap={};
-  rows.forEach(function(row){
-    var qb=_jerseyInt(row[colQB]); if(!_jerseyValid(qb)) return;  // skip rows with no QB tagged
-    // CRITICAL: #16 Overton is RB — always in pff_RBS, never a WR/TE position
-    var rb=_jerseyInt(row[colRB]);
-    var ty=_jerseyInt(row[colY]); var tf=_jerseyInt(row[colF]);
-    var tz=_jerseyInt(row[colZ]); var tx=_jerseyInt(row[colX]);
-    var lt=_jerseyInt(row[colOL[0]]); var lg=_jerseyInt(row[colOL[1]]);
-    var c=_jerseyInt(row[colOL[2]]);  var rg=_jerseyInt(row[colOL[3]]); var rt=_jerseyInt(row[colOL[4]]);
-    var pers=row[colPers]||''; var playCall=row[colCall]||'';
-    var playType=(row[colType]||'').toUpperCase();
-    var isRun=playType.indexOf('RUN')>=0||playType.indexOf('RUSH')>=0;
-    var gain=parseFloat(row[colGain])||0;
-    // Efficiency flags
-    var isEff,isExpl,isNeg;
-    if(colEff){var ev=String(row[colEff]).toLowerCase();isEff=ev==='1'||ev==='yes'||ev==='true';}
-    else{isEff=isRun?(gain>=4):(gain>=5);}
-    if(colExpl){var xv=String(row[colExpl]).toLowerCase();isExpl=xv==='1'||xv==='yes'||xv==='true';}
-    else{isExpl=isRun?(gain>=10):(gain>=15);}
-    if(colNeg){var nv=String(row[colNeg]).toLowerCase();isNeg=nv==='1'||nv==='yes'||nv==='true';}
-    else{isNeg=gain<=0;}
-    // Require all 4 position slots filled — jersey 0 (Ayden Greene #0) is VALID
-    if(!_jerseyValid(ty)||!_jerseyValid(tf)||!_jerseyValid(tz)||!_jerseyValid(tx)) return;
-    // Skill key: QB | RB | sorted TEs | sorted WRs | personnel
-    // _jerseyValid check above ensures no slot is null — 0 stays as 0 (#0 Greene)
-    var tes=[ty].filter(function(j){return _jerseyValid(j)&&_ROSTER[j]&&_ROSTER[j].pos==='TE';});
-    var wrs=[tf,tz,tx].filter(_jerseyValid).sort(function(a,b){return a-b;});
-    if(!tes.length){tes=[ty];wrs=[tf,tz,tx].sort(function(a,b){return a-b;});}  // fallback: Y=TE slot
-    tes.sort(function(a,b){return a-b;});
-    var skillKey=[qb,_jerseyValid(rb)?rb:-1].concat(tes).concat(wrs).join('|')+'|'+pers;
-    if(!skillMap[skillKey]) skillMap[skillKey]={key:skillKey,pers:pers,qb:qb,rb:_jerseyValid(rb)?rb:0,tes:tes,wrs:wrs,n:0,run_n:0,pass_n:0,gains:[],effs:0,expls:0,negs:0,plays:{}};
-    var sc=skillMap[skillKey];
-    sc.n++; if(isRun) sc.run_n++; else sc.pass_n++;
-    sc.gains.push(gain); if(isEff) sc.effs++; if(isExpl) sc.expls++; if(isNeg) sc.negs++;
-    if(playCall.length>2){
-      if(!sc.plays[playCall]) sc.plays[playCall]={n:0,gains:[],effs:0,type:isRun?'RUN':'PASS'};
-      var pc2=sc.plays[playCall]; pc2.n++; pc2.gains.push(gain); if(isEff) pc2.effs++;
-    }
-    // OL key — 0 is valid for OL too (no jersey 0 OL, but keep consistent)
-    if(_jerseyValid(lt)&&lt&&_jerseyValid(lg)&&lg&&_jerseyValid(c)&&c&&_jerseyValid(rg)&&rg&&_jerseyValid(rt)&&rt){
-      var olKey=[lt,lg,c,rg,rt].join('|');
-      if(!olMap[olKey]) olMap[olKey]={lt:lt,lg:lg,c:c,rg:rg,rt:rt,n:0,gains:[],effs:0,expls:0,negs:0};
-      var ol2=olMap[olKey]; ol2.n++; ol2.gains.push(gain); if(isEff) ol2.effs++; if(isExpl) ol2.expls++; if(isNeg) ol2.negs++;
-    }
-  });
-  function _gAvg(arr){if(!arr.length) return 0;return Math.round(arr.reduce(function(s,v){return s+v;},0)/arr.length*10)/10;}
-  function _gPct(n,tot){return tot?Math.round(n/tot*100):0;}
-  var skill=Object.values(skillMap).filter(function(s2){return s2.n>=3;}).map(function(s2){
-    return {key:s2.key,pers:s2.pers,qb:s2.qb,rb:s2.rb,tes:s2.tes,wrs:s2.wrs,
-      n:s2.n,run_n:s2.run_n,pass_n:s2.pass_n,
-      avg:_gAvg(s2.gains),eff:_gPct(s2.effs,s2.n),expl:_gPct(s2.expls,s2.n),neg:_gPct(s2.negs,s2.n),
-      plays:Object.keys(s2.plays).map(function(k){var p=s2.plays[k];return{call:k,n:p.n,avg:_gAvg(p.gains),eff:_gPct(p.effs,p.n),type:p.type};})
-        .sort(function(a,b){return b.n-a.n;}).slice(0,8)};
-  }).sort(function(a,b){return b.n-a.n;}).slice(0,20);
-  var ol=Object.values(olMap).filter(function(o){return o.n>=3;}).map(function(o){
-    return {lt:o.lt,lg:o.lg,c:o.c,rg:o.rg,rt:o.rt,n:o.n,avg:_gAvg(o.gains),eff:_gPct(o.effs,o.n),expl:_gPct(o.expls,o.n),neg:_gPct(o.negs,o.n)};
-  }).sort(function(a,b){return b.n-a.n;}).slice(0,10);
-  return {skill:skill,ol:ol};
 }
 function _buildScript(d) {
   var h=''; var sit=_getSituationData(); var groupData=sit.group;
