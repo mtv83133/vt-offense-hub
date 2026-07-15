@@ -8,9 +8,9 @@
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --m:#861F41;--m-dark:#3D0A1E;--o:#E5751F;--bg:#EFEFEF;--card:#fff;--txt:#1a1a1a;--muted:#6b7280;
-  --bdr:#e5e7eb;--good:#166534;--goodbg:#dcfce7;--warn:#92400e;--warnbg:#fef3c7;
-  --bad:#991b1b;--badbg:#fee2e2;
+  --m:#861F41;--m-dark:#3D0A1E;--o:#E5751F;--bg:#1B1B2F;--card:#242438;--txt:#FFFFFF;--muted:#AAA8C2;
+  --bdr:#3A3A58;--good:#2E9E4F;--goodbg:rgba(46,158,79,.18);--warn:#E8A33D;--warnbg:rgba(232,163,61,.18);
+  --bad:#E5484D;--badbg:rgba(229,72,77,.18);
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--txt);display:flex;min-height:100vh;font-size:14px}
 /* SIDEBAR */
@@ -36,7 +36,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 /* MAIN */
 #main{margin-left:210px;flex:1;display:flex;flex-direction:column;min-height:100vh}
 /* TOP BAR */
-#tbar{background:var(--card);border-bottom:1px solid var(--bdr);padding:10px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+#tbar{background:var(--card);border-bottom:1px solid var(--bdr);padding:10px 22px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:50}
 .tbar-opp{flex:1}
 .tbar-name{font-size:20px;font-weight:900;color:var(--m);line-height:1}
 .tbar-info{font-size:11px;color:var(--muted);margin-top:2px}
@@ -46,10 +46,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .btn-out{background:transparent;color:var(--m);border:2px solid var(--m)}.btn-out:hover{background:var(--m);color:#fff}
 /* CONTENT */
 #content{padding:20px 22px;flex:1}
+#content.drag-over{outline:3px dashed var(--o);outline-offset:-8px;background:rgba(232,119,34,.05)}
 /* SECTIONS */
 .sec{display:none}.sec.on{display:block}
 /* CARD */
-.card{background:var(--card);border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.card{background:var(--card);border-radius:10px;padding:18px;border:1px solid var(--bdr)}
 .card-hd{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin-bottom:10px}
 /* SECTION HEADER */
 .sec-hd{margin-bottom:18px}
@@ -61,13 +62,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .g4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
 .g7{display:grid;grid-template-columns:repeat(7,1fr);gap:10px}
 /* STAT CARDS */
-.scard{background:var(--card);border-radius:10px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08);border-left:4px solid var(--bdr)}
+.scard{background:var(--card);border-radius:10px;padding:14px 16px;border:1px solid var(--bdr);border-left:4px solid var(--bdr)}
 .scard.good{border-left-color:var(--good)}.scard.bad{border-left-color:var(--bad)}.scard.warn{border-left-color:var(--warn)}
 .sl{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px}
 .sv{font-size:20px;font-weight:900;margin:3px 0}
 .sr{display:flex;gap:6px;flex-wrap:wrap}
 .rb{padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700}
-.rb.c{background:#f3f4f6;color:var(--muted)}
+.rb.c{background:rgba(255,255,255,.08);color:var(--muted)}
 .rb.ng{background:var(--goodbg);color:var(--good)}.rb.nb{background:var(--badbg);color:var(--bad)}.rb.nw{background:var(--warnbg);color:var(--warn)}
 /* FAST FACTS */
 .ff{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--bdr)}
@@ -88,8 +89,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .tbl th{background:var(--m);color:#fff;padding:8px 11px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
 .tbl td{padding:8px 11px;border-bottom:1px solid var(--bdr)}
 .tbl tr:last-child td{border-bottom:none}
-.tbl tr:nth-child(even) td{background:#fafafa}
-.tbl tr:hover td{background:#f5f5f5}
+.tbl tr:nth-child(even) td{background:rgba(255,255,255,.025)}
+.tbl tr:hover td{background:rgba(255,255,255,.05)}
 .tbl td.b{font-weight:700}.tbl td.c{text-align:center}.tbl td.r{text-align:right}
 /* SUB TABS */
 .stabs{display:flex;gap:0;margin-bottom:18px;border-bottom:2px solid var(--bdr)}
@@ -97,16 +98,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .stab:hover{color:var(--m)}.stab.on{color:var(--m);border-bottom-color:var(--o);font-weight:800}
 .stcon{display:none}.stcon.on{display:block}
 /* PRESSURE CARDS */
-.pcard{background:var(--card);border-radius:10px;padding:16px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.pcard{background:var(--card);border-radius:10px;padding:16px;text-align:center;border:1px solid var(--bdr)}
 .ppct{font-size:32px;font-weight:900;line-height:1}
 .plbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-top:4px}
 .pcnt{font-size:11px;color:var(--muted);margin-top:2px}
 .pcard.int .ppct{color:var(--bad)}.pcard.fld .ppct{color:var(--m)}.pcard.bnd .ppct{color:var(--warn)}.pcard.dbl .ppct{color:var(--o)}
 /* ZONE CARDS */
-.zcard{border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.zcard.outer{background:#fff7ed;border:2px solid var(--o)}
-.zcard.inner{background:#fef2f2;border:2px solid #dc2626}
-.zcard.score{background:#fef2f2;border:2px solid #7f1d1d}
+.zcard{border-radius:10px;padding:18px;border:1px solid var(--bdr)}
+.zcard.outer{background:rgba(229,117,31,.12);border:2px solid var(--o)}
+.zcard.inner{background:rgba(220,38,38,.12);border:2px solid #dc2626}
+.zcard.score{background:rgba(127,29,29,.18);border:2px solid #7f1d1d}
 .zcard.gl{background:var(--m);color:#fff}
 .zhd{font-size:13px;font-weight:900;text-transform:uppercase;margin-bottom:10px}
 .zcard.outer .zhd{color:var(--m)}.zcard.inner .zhd{color:#dc2626}.zcard.score .zhd{color:#7f1d1d}.zcard.gl .zhd{color:var(--o)}
@@ -114,7 +115,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .dc-row{display:flex;gap:10px;margin-bottom:14px}
 .dc-pos{flex:1;min-width:0}
 .dc-lbl{background:var(--m);color:#fff;font-size:10px;font-weight:800;text-align:center;padding:4px;border-radius:4px;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
-.dc-player{background:#f9f9f9;border:1px solid var(--bdr);border-radius:6px;padding:7px 8px;margin-bottom:5px;font-size:11px;line-height:1.3}
+.dc-player{background:rgba(255,255,255,.04);border:1px solid var(--bdr);border-radius:6px;padding:7px 8px;margin-bottom:5px;font-size:11px;line-height:1.3}
 .dc-player.s{border-left:3px solid var(--o)}
 .dc-num{font-weight:900;color:var(--m);font-size:12px}
 .dc-name{font-weight:700}
@@ -129,13 +130,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 /* RUN EFF BARS */
 .ebar{display:flex;align-items:center;gap:10px;margin-bottom:7px}
 .ebar-lbl{min-width:90px;font-size:12px;font-weight:700}
-.ebar-track{flex:1;background:#f0f0f0;border-radius:4px;height:18px;overflow:hidden}
+.ebar-track{flex:1;background:rgba(255,255,255,.06);border-radius:4px;height:18px;overflow:hidden}
 .ebar-fill{height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;border-radius:4px}
 .ebar-fill span{font-size:10px;font-weight:800;color:#fff}
 .ebar-ct{min-width:55px;text-align:right;font-size:11px;color:var(--muted)}
 /* CALLOUT */
 .callout{padding:11px 14px;border-radius:8px;font-size:12.5px;line-height:1.5;margin-bottom:14px}
-.callout.info{background:#eff6ff;border-left:4px solid #3b82f6}
+.callout.info{background:rgba(59,130,246,.15);border-left:4px solid #3b82f6}
 .callout.warn{background:var(--warnbg);border-left:4px solid var(--o)}
 .callout.danger{background:var(--badbg);border-left:4px solid var(--bad)}
 .callout.success{background:var(--goodbg);border-left:4px solid var(--good)}
@@ -312,9 +313,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   <div class="nav sub" onclick="show('cd');switchStab('cd','blitz')">↳ Blitz</div>
   <div class="nav" onclick="show('rz')">🎯 Red Zone</div>
   <div class="nav" onclick="show('gl')">🏁 Goal Line</div>
-  <div class="sb-sec">Saved Local Drafts</div>
-  <div class="sb-save-btn" onclick="saveReport()">💾 Save Current Report</div>
-  <div id="saved-reports-list"><div class="sr-empty">No saved reports yet</div></div>
 </nav>
 
 <!-- MAIN -->
@@ -325,17 +323,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       <div class="tbar-name" id="tbar-name">MARYLAND</div>
       <div class="tbar-info" id="tbar-info">2025 Season · DC: Ted Monachino (2nd Season) · Big Ten</div>
     </div>
-    <button class="btn btn-out" onclick="document.getElementById('modal').classList.add('show')">⬆ Import CSV</button>
-    <button class="btn btn-m" onclick="downloadTemplate()">⬇ Template</button>
-    <button class="btn" style="background:#166534;color:#fff" onclick="saveReport()">💾 Save</button>
-    <button class="btn" style="background:#1e3a8a;color:#fff" onclick="document.getElementById('share-modal').classList.add('show')">📤 Share</button>
+    <div id="drop-hint" style="font-size:11px;color:var(--muted);border:1px dashed var(--bdr);border-radius:6px;padding:6px 12px;white-space:nowrap">📂 Drag &amp; drop a CSV here to update this report</div>
     <button class="btn btn-o" onclick="printDashboard()">🖨 Print</button>
   </div>
 
   <!-- CONTENT -->
   <div id="content">
-
-    <div id="team-content-MARYLAND" class="team-content on">
 
     <!-- ===== OVERVIEW ===== -->
     <div class="sec on" id="sec-overview">
@@ -1134,15 +1127,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
       </div>
     </div>
 
-
-  </div><!-- /team-content-MARYLAND -->
-
-    <div id="team-content-BLANK" class="team-content">
+    <!-- ===== DEEP SCHEME DATA PENDING (shown instead of Run D / ND / CD / RZ / GL when no PFF/XOS breakdown has been built for this opponent yet) ===== -->
+    <div class="sec" id="sec-deep-pending">
       <div class="no-data-state">
         <div class="nd-icon">🏈</div>
-        <h2 id="blank-team-name">No Data Yet</h2>
-        <p>This opponent's scouting report hasn't been built yet. When it's game week, send the opponent's PFF/XOS export to Claude and it'll bake the full report in here — Overview, DC Profile, Statistics, Depth Chart, Run Defense, Normal &amp; Conversion Downs, Red Zone, and Goal Line — and it'll stay here permanently, even weeks later.</p>
-        <div class="no-data-cta" onclick="document.getElementById('modal').classList.add('show')">⬆ Import CSV for This Team</div>
+        <h2 id="deep-pending-name">Scheme Breakdown Not Built Yet</h2>
+        <p>Run Defense, Normal/Conversion Downs, Red Zone, and Goal Line for this opponent haven't been built yet. Drop their PFF/XOS play export on this page to update the Overview, DC Profile, Statistics, and Depth Chart above instantly — then send that same file to Claude to build the full scheme breakdown and publish it permanently.</p>
       </div>
     </div>
 
@@ -1152,55 +1142,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 <!-- BAKED-IN DATA (populated when exporting a share file) -->
 <script id="report-data" type="application/json">null</script>
 
-<!-- SHARE MODAL -->
-<div id="share-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center">
-  <div class="modal">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-      <div class="modal-title">Share This Report</div>
-      <span style="cursor:pointer;font-size:20px;color:var(--muted);line-height:1" onclick="document.getElementById('share-modal').classList.remove('show')">×</span>
-    </div>
-    <div class="modal-sub">Choose how to share the current scouting report with your staff.</div>
-    <div class="share-option" onclick="shareStandaloneFile()">
-      <div class="share-icon">📄</div>
-      <div>
-        <div class="share-title">Download Shareable File</div>
-        <div class="share-desc">Exports a self-contained HTML file with all data baked in. Staff just open it in any browser — no login, no server, no install needed. Email it or drop it in a shared drive.</div>
-      </div>
-    </div>
-    <div class="share-option" onclick="copyEmbedInstructions()">
-      <div class="share-icon">📋</div>
-      <div>
-        <div class="share-title">Copy Setup Instructions</div>
-        <div class="share-desc">Copies a quick-start guide to your clipboard. Paste it in a group chat so staff know how to open the dashboard and import weekly CSVs.</div>
-      </div>
-    </div>
-    <div style="margin-top:14px;padding:10px 14px;background:#f9fafb;border-radius:6px;font-size:11.5px;color:var(--muted)">
-      💡 <strong>Tip:</strong> Save the report first, then share — your named save will carry into the exported file so recipients see the correct opponent name.
-    </div>
-  </div>
-</div>
-
-<!-- IMPORT MODAL -->
-<div id="modal">
-  <div class="modal">
-    <div class="modal-title">Import New Opponent CSV</div>
-    <div class="modal-sub">Drop your weekly opponent CSV file below to populate the dashboard. Download the template first to see the required format.</div>
-    <div class="fdrop" id="fdrop" onclick="document.getElementById('csv-input').click()">
-      <input type="file" id="csv-input" accept=".csv" onchange="handleFile(this.files[0])">
-      <div style="font-size:28px;margin-bottom:8px">📂</div>
-      <div style="font-weight:700;color:var(--m)">Click or drag CSV file here</div>
-      <div class="txt-xs txt-muted mt8">Accepted: .csv files only · Download template to see format</div>
-    </div>
-    <div class="flex gap10 mt14" style="justify-content:flex-end">
-      <button class="btn btn-m" onclick="downloadTemplate()">⬇ Download Template</button>
-      <button class="btn btn-out" onclick="document.getElementById('modal').classList.remove('show')">Close</button>
-    </div>
-  </div>
-</div>
-
 <script>
 // ==================== DATA ====================
-const D = {
+const MARYLAND_DATA = {
   meta: { opponent: 'MARYLAND', info: '2025 Season · DC: Ted Monachino (2nd Season) · Big Ten' },
   dc: {
     name: 'Ted Monachino',
@@ -1311,39 +1255,56 @@ const TEAM_LABELS = {
   MIAMI: "Miami",
   UVA: "UVA"
 };
-const TEAMS_WITH_DATA = ["MARYLAND"]; // teams with a built report; extend as data is baked in
+
+function blankTeamData(key) {
+  return {
+    meta: { opponent: TEAM_LABELS[key] || key, info: currentYear + " Season · Awaiting scouting data" },
+    dc: { name: "", title: "", bio: "", career: [] },
+    stats: MARYLAND_DATA.stats.map(function(s){ return { label:s.label, val:"—", conf:0, nat:0, dir:"" }; }),
+    fastFacts: [],
+    exploits: [],
+    sitRef: [],
+    depthChart: { secondary: [], dline: [] },
+    statLeaders: [],
+    top3: [],
+    runFamilies: []
+  };
+}
+
+// TEAMS_DATA holds one data object per opponent. MARYLAND starts populated (already built);
+// every other opponent starts blank and fills in via CSV drop or a Claude-baked update.
+const TEAMS_DATA = { MARYLAND: MARYLAND_DATA };
+Object.keys(TEAM_LABELS).forEach(function(key){
+  if (!TEAMS_DATA[key]) TEAMS_DATA[key] = blankTeamData(key);
+});
+
+// Teams whose full PFF/XOS scheme breakdown (Run Defense / ND / CD / RZ / GL) has been built.
+// Everyone else shows the "scheme breakdown not built yet" placeholder for those sections
+// even if their Overview/DC/Stats/Depth have been filled in via a quick CSV drop.
+const TEAMS_WITH_DEEP_DATA = ["MARYLAND"];
+
 let currentTeam = "MARYLAND";
 let currentYear = "2026";
+let D = TEAMS_DATA.MARYLAND;
+
+function hasDeepData(key) { return TEAMS_WITH_DEEP_DATA.indexOf(key) !== -1; }
 
 function selectTeam(key) {
   currentTeam = key;
+  D = TEAMS_DATA[key] || blankTeamData(key);
+  TEAMS_DATA[key] = D;
+
   document.querySelectorAll(".opp-nav").forEach(function(n){ n.classList.remove("on"); });
   const navEl = document.getElementById("opp-nav-" + key);
   if (navEl) navEl.classList.add("on");
 
-  const hasData = TEAMS_WITH_DATA.indexOf(key) !== -1;
-  document.querySelectorAll(".team-content").forEach(function(c){ c.classList.remove("on"); });
-
-  if (hasData) {
-    const el = document.getElementById("team-content-" + key);
-    if (el) el.classList.add("on");
-    const nameEl = document.getElementById("tbar-name");
-    if (nameEl) nameEl.textContent = TEAM_LABELS[key] || key;
-  } else {
-    document.getElementById("team-content-BLANK").classList.add("on");
-    const blankName = document.getElementById("blank-team-name");
-    if (blankName) blankName.textContent = (TEAM_LABELS[key] || key) + " — No Data Yet";
-    const nameEl = document.getElementById("tbar-name");
-    if (nameEl) nameEl.textContent = TEAM_LABELS[key] || key;
-    const infoEl = document.getElementById("tbar-info");
-    if (infoEl) infoEl.textContent = currentYear + " Season · Awaiting scouting data";
-  }
-  show("overview");
+  renderAll();
+  show(currentSection || "overview");
 }
 
 function selectYear(year) {
   currentYear = year;
-  // Future years will swap in a different TEAMS_WITH_DATA / dataset per year here.
+  // Future seasons will swap in a different TEAMS_DATA set here once more than one year exists.
 }
 
 // ==================== RENDER ====================
@@ -1673,12 +1634,21 @@ function printDashboard() {
 }
 
 // ==================== NAV ====================
+const DEEP_SECTION_IDS = ['run','nd','cd','rz','gl'];
 function show(id) {
   currentSection = id;
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
   document.querySelectorAll('.nav').forEach(n=>n.classList.remove('on'));
-  const el = document.getElementById('sec-'+id);
+
+  const showPending = DEEP_SECTION_IDS.indexOf(id) !== -1 && !hasDeepData(currentTeam);
+  const targetId = showPending ? 'deep-pending' : ('sec-'+id);
+  const el = document.getElementById(targetId);
   if(el) el.classList.add('on');
+  if (showPending) {
+    const nm = document.getElementById('deep-pending-name');
+    if (nm) nm.textContent = (TEAM_LABELS[currentTeam] || currentTeam) + ' — Scheme Breakdown Not Built Yet';
+  }
+
   document.querySelectorAll('.nav').forEach(n=>{
     if(n.getAttribute('onclick') && n.getAttribute('onclick').includes("'"+id+"'")){
       n.classList.add('on');
@@ -1854,12 +1824,13 @@ function loadBakedData() {
   } catch(e) { console.warn('Could not load baked data:', e); }
 }
 
-// ==================== FILE DROP ====================
-const fdrop = document.getElementById('fdrop');
-fdrop.addEventListener('dragover', e=>{e.preventDefault();fdrop.classList.add('drag')});
-fdrop.addEventListener('dragleave', ()=>fdrop.classList.remove('drag'));
-fdrop.addEventListener('drop', e=>{
-  e.preventDefault(); fdrop.classList.remove('drag');
+// ==================== FILE DROP (drops directly onto the current opponent tab) ====================
+const contentDrop = document.getElementById('content');
+contentDrop.addEventListener('dragover', e=>{ e.preventDefault(); contentDrop.classList.add('drag-over'); });
+contentDrop.addEventListener('dragleave', e=>{ if(e.target===contentDrop) contentDrop.classList.remove('drag-over'); });
+contentDrop.addEventListener('drop', e=>{
+  e.preventDefault();
+  contentDrop.classList.remove('drag-over');
   const f = e.dataTransfer.files[0];
   if(f) handleFile(f);
 });
@@ -1869,13 +1840,14 @@ function handleFile(file) {
   reader.onload = e => {
     try {
       parseCSV(e.target.result);
-      activeReportId = null; // new data = unsaved
-      document.getElementById('modal').classList.remove('show');
       renderAll();
-      renderSavedReports();
-      alert('✅ New opponent data loaded! Click 💾 Save to keep this report.');
+      const infoEl = document.getElementById('tbar-info');
+      if (infoEl && !infoEl.querySelector('.active-badge')) {
+        infoEl.insertAdjacentHTML('beforeend', '<span class="active-badge">✓ Updated — send this file to Claude to publish it live</span>');
+        setTimeout(() => { const b = infoEl.querySelector('.active-badge'); if(b) b.remove(); }, 4000);
+      }
     } catch(err) {
-      alert('❌ Error parsing CSV: ' + err.message + '\n\nPlease check the template format.');
+      alert('❌ Error reading file: ' + err.message);
     }
   };
   reader.readAsText(file);
@@ -1962,14 +1934,7 @@ DC,bio,"Full bio text here"
 // ==================== INIT ====================
 document.addEventListener('DOMContentLoaded', () => {
   loadBakedData();   // load data if this is a shared/exported file
-  renderAll();
-  renderSavedReports();
   selectTeam('MARYLAND');
-
-  // Close share modal on backdrop click
-  document.getElementById('share-modal').addEventListener('click', function(e) {
-    if (e.target === this) this.classList.remove('show');
-  });
 });
 </script>
 </body>
