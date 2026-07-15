@@ -1256,6 +1256,9 @@ const TEAM_LABELS = {
   UVA: "UVA"
 };
 
+let currentTeam = "MARYLAND";
+let currentYear = "2026";
+
 function blankTeamData(key) {
   return {
     meta: { opponent: TEAM_LABELS[key] || key, info: currentYear + " Season · Awaiting scouting data" },
@@ -1283,8 +1286,6 @@ Object.keys(TEAM_LABELS).forEach(function(key){
 // even if their Overview/DC/Stats/Depth have been filled in via a quick CSV drop.
 const TEAMS_WITH_DEEP_DATA = ["MARYLAND"];
 
-let currentTeam = "MARYLAND";
-let currentYear = "2026";
 let D = TEAMS_DATA.MARYLAND;
 
 function hasDeepData(key) { return TEAMS_WITH_DEEP_DATA.indexOf(key) !== -1; }
@@ -1641,7 +1642,7 @@ function show(id) {
   document.querySelectorAll('.nav').forEach(n=>n.classList.remove('on'));
 
   const showPending = DEEP_SECTION_IDS.indexOf(id) !== -1 && !hasDeepData(currentTeam);
-  const targetId = showPending ? 'deep-pending' : ('sec-'+id);
+  const targetId = showPending ? 'sec-deep-pending' : ('sec-'+id);
   const el = document.getElementById(targetId);
   if(el) el.classList.add('on');
   if (showPending) {
