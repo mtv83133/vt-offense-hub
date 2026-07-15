@@ -31,6 +31,44 @@ practice data, don't re-derive them from scratch.
   splice, before committing. It fails loudly on any of the bug classes
   below. **Never ship without a clean run of this.**
 
+## IMPORTANT -- the site is now password-locked (read this first)
+
+As of the encryption pass, `self-scout.html`, `advance-scout.html`, and
+`index.html` in the repo root are the **locked/deployed** versions -- their
+`<body>` is AES-256-GCM ciphertext, not readable/editable HTML. **This
+whole pipeline (build → splice → validate) only works against the
+plaintext master, never against a locked file.**
+
+The plaintext masters live in `_source/` (gitignored -- never committed,
+never pushed to the public repo):
+
+- `_source/self-scout.html`
+- `_source/advance-scout.html`
+- `_source/index.html`
+
+Workflow for ANY future edit (data pipeline or hand edit alike):
+
+```bash
+# 1. Do all your normal work (pipeline steps below, or hand edits) against
+#    the PLAINTEXT master in _source/, e.g.:
+python3 splice_data.py spring _source/self-scout.html ...
+python3 validate_self_scout.py _source/self-scout.html
+
+# 2. Re-lock it to produce the deployable file (same password each time --
+#    ask Matt if it's not already in hand):
+node security-tools/lock_page.js _source/self-scout.html self-scout.html HOKIESOFF2026
+
+# 3. Commit/push self-scout.html (the locked one). Never commit anything
+#    from _source/.
+```
+
+If a locked file is ever committed without a matching update to its
+`_source/` master, or the master is lost, the deployed file cannot be
+edited or re-locked -- there is no way to recover the plaintext body from
+ciphertext without the password. Keep `_source/` backed up (it's synced to
+Matt's local Projects folder alongside the deployed files, in a clearly
+separate location).
+
 ## Workflow for a new practice CSV
 
 ```bash
@@ -40,15 +78,18 @@ python3 build_spring_variant.py skelly   /path/to/practice.csv output/
 python3 build_spring_variant.py combined /path/to/practice.csv output/
 # (or build_period_variant.py <variant> <csv> <day_key> output/ for Fall/Season)
 
-# 2. Splice into the page
-python3 splice_data.py spring self-scout.html \
+# 2. Splice into the PLAINTEXT MASTER (not the locked repo-root file!)
+python3 splice_data.py spring _source/self-scout.html \
   --team-dir output/ --skelly-dir output/ --combined-dir output/
-# (or: splice_data.py period self-scout.html --js-var FALL_DATA
+# (or: splice_data.py period _source/self-scout.html --js-var FALL_DATA
 #      --day-key fall_2 --new-day --label "Day 2" --date 2026-08-05
 #      --team-json output/fall_2_team.json ...)
 
-# 3. Validate before committing
-python3 validate_self_scout.py self-scout.html
+# 3. Validate before locking/committing
+python3 validate_self_scout.py _source/self-scout.html
+
+# 4. Re-lock to produce the deployable file, then commit/push THAT
+node security-tools/lock_page.js _source/self-scout.html self-scout.html HOKIESOFF2026
 ```
 
 If validation fails, fix the build script (not the HTML by hand) and
@@ -144,44 +185,4 @@ confidently classify as a real play-call name vs. a protection/category
 tag, don't guess -- add it to neither list and ask Matt.** Wrong guesses
 here are exactly what caused this whole debugging cycle.
 
-### WARP total consistency
-`PW_DATA.warp.total` (and every `PW_DATA.warp.procedures.<TEMPO>.total`)
-must be computed from the **same filtered row set** as the entries next to
-it, never from the full unfiltered row list:
-```python
-warp_all_items = [r for items in warp_map.values() for r in items]
-PW_warp = {'total_section': ..., 'total': warp_play_row(warp_all_items), ...}
-```
-`validate_self_scout.py` checks `total.n == sum(entry.n for entry in
-total_section)` and that it's `<= pass_ov.n <= overall.n`. If that check
-fails, `total` is being computed over the wrong rows again.
-
-### Concept naming (Pass Concepts / Red Zone tabs -- NOT WARP)
-```python
-def concept_name(r):
-    primary = r['Primary'].strip(); reset = r['Reset'].strip()
-    if primary: return primary + (' / ' + reset if reset else '')
-    full = r['Full Concept'].strip()
-    if full: return full
-    return r['Play'].strip() or '(unknown)'
-```
-
-### Jersey parsing
-Strip a leading `O`/`o`, then `int()`. Empty string / `-` / `N/A` -> `None`
-(missing). `0` is a valid jersey number.
-
-### Roster
-`ROSTER` (jersey -> `(name, position)`) is hardcoded at the top of both
-build scripts. **Update it there** whenever the roster changes (transfers,
-new signees) -- it is not read from the CSV.
-
-## Known pre-existing limitation
-
-The Team variant's `pass_ov.n`/`run_ov.n` (553/363) are the original,
-already-shipped baseline and were **not** regenerated from this pipeline --
-only its WARP section was rebuilt (surgically) to fix the total-inflation
-bug. If you ever fully rebuild Team from a CSV with this pipeline you'll
-get 548/368 instead (a ~5-play difference, previously investigated and
-accepted as noise in the source data). Don't be alarmed by that gap; don't
-"fix" it without checking with Matt first, since 553/363 is the number
-that's been validated and shipped.
+### WARP total

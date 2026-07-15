@@ -1,39 +1,49 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VT Football | Scouting Hub</title>
-<style>
-:root {
-  --maroon: #861F41; --maroon-dark: #3D0A1E; --orange: #E5751F;
-  --navy: #1B1B2F; --card: #242438; --card2: #2D2D45;
-  --border: #3A3A58; --text: #FFFFFF; --dim: #AAA8C2; --muted: #666485;
+#!/usr/bin/env node
+/*
+ * lock_page.js -- wraps an HTML page's <body> content behind a client-side
+ * password gate. The entire body (all markup + inline scripts + data) is
+ * AES-256-GCM encrypted with a key derived from a password via PBKDF2. The
+ * ciphertext sits in the shipped HTML; nothing readable exists in the page
+ * source until the correct password is entered in the browser.
+ *
+ * Usage:
+ *   node lock_page.js <input.html> <output.html> <password>
+ *
+ * To change the password later, just re-run this against the ORIGINAL
+ * unencrypted source file (keep a plaintext copy around for edits -- you
+ * cannot easily "re-encrypt" an already-locked file without the old
+ * password, since the body markup is gone from the shipped file).
+ */
+const fs = require('fs');
+const { webcrypto } = require('crypto');
+const subtle = webcrypto.subtle;
+
+const PBKDF2_ITERATIONS = 300000;
+
+async function deriveKey(password, salt) {
+  const enc = new TextEncoder();
+  const baseKey = await subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
 }
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Segoe UI',Arial,sans-serif;background:var(--navy);color:var(--text);min-height:100vh;display:flex;flex-direction:column;}
-.hdr{background:linear-gradient(135deg,var(--maroon-dark) 0%,var(--maroon) 100%);border-bottom:3px solid var(--orange);padding:20px 24px;box-shadow:0 4px 24px rgba(0,0,0,0.7);}
-.hdr-inner{display:flex;align-items:center;gap:16px;max-width:1100px;margin:0 auto;}
-.vt-logo{background:var(--orange);color:var(--maroon-dark);font-size:26px;font-weight:900;width:54px;height:54px;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0;border:2px solid rgba(255,255,255,0.2);}
-.hdr-title h1{font-size:20px;font-weight:800;letter-spacing:.5px;}
-.hdr-title p{font-size:11px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1.5px;margin-top:3px;}
-main{flex:1;max-width:1100px;margin:0 auto;padding:48px 24px;width:100%;}
-.intro{text-align:center;margin-bottom:40px;}
-.intro h2{font-size:22px;font-weight:800;margin-bottom:8px;}
-.intro p{color:var(--dim);font-size:13px;}
-.cards{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
-@media (max-width:720px){.cards{grid-template-columns:1fr;}}
-.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:32px;text-decoration:none;color:var(--text);display:block;transition:transform .15s, border-color .15s;border-top:4px solid var(--border);}
-.card:hover{transform:translateY(-3px);border-top-color:var(--orange);}
-.card-icon{font-size:34px;margin-bottom:14px;}
-.card h3{font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;}
-.card p{font-size:12px;color:var(--dim);line-height:1.7;margin-bottom:16px;}
-.card-meta{display:flex;gap:8px;flex-wrap:wrap;}
-.hp{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:4px 12px;font-size:10px;color:rgba(255,255,255,.65);}
-.card-cta{margin-top:18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--orange);}
-footer{text-align:center;padding:20px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);}
-</style>
-<style>
+
+function b64(buf) { return Buffer.from(buf).toString('base64'); }
+
+async function encryptText(plaintext, password) {
+  const salt = webcrypto.getRandomValues(new Uint8Array(16));
+  const iv = webcrypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(password, salt);
+  const enc = new TextEncoder();
+  const ciphertext = await subtle.encrypt({ name: 'AES-GCM', iv }, key, enc.encode(plaintext));
+  return { salt: b64(salt), iv: b64(iv), ct: b64(ciphertext), it: PBKDF2_ITERATIONS };
+}
+
+const LOCK_CSS = `
 /* ===== Password gate (injected by lock_page.js) ===== */
 #vtLockOverlay{position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#3D0A1E 0%,#1B1B2F 100%);
   display:flex;align-items:center;justify-content:center;padding:24px;}
@@ -54,9 +64,11 @@ footer{text-align:center;padding:20px;color:var(--muted);font-size:11px;border-t
 #vtLockBtn:active{filter:brightness(.95);}
 #vtLockErr{color:#ff8080;font-size:11px;margin-top:10px;min-height:14px;font-family:'Segoe UI',Arial,sans-serif;}
 #vtLockFoot{color:#666485;font-size:10px;margin-top:18px;font-family:'Segoe UI',Arial,sans-serif;}
-</style>
-</head>
-<body>
+`;
+
+function buildBootstrap(payload) {
+  const payloadJson = JSON.stringify(payload);
+  return `
 <div id="vtLockOverlay">
   <div id="vtLockBox">
     <div class="vt-lock-icon">VT</div>
@@ -68,10 +80,10 @@ footer{text-align:center;padding:20px;color:var(--muted);font-size:11px;border-t
     <div id="vtLockFoot">VT Football &middot; Session unlocks automatically on other pages</div>
   </div>
 </div>
-<script id="vtLockPayload" type="application/json">{"salt":"Tsh/EmrSRBejjLXpPuKqJA==","iv":"/3MLNR0R9br/SVQm","ct":"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","it":300000}</script>
+<script id="vtLockPayload" type="application/json">${payloadJson}</script>
 <script>
 (function(){
-  var PBKDF2_ITERATIONS = 300000;
+  var PBKDF2_ITERATIONS = ${PBKDF2_ITERATIONS};
   var SS_KEY = 'vt_scout_pw_v1';
 
   function b64ToBytes(str) {
@@ -157,5 +169,38 @@ footer{text-align:center;padding:20px;color:var(--muted);font-size:11px;border-t
     wireUpUI();
   }
 })();
-</script>
-</body></html>
+</script>`;
+}
+
+async function main() {
+  const [,, inputPath, outputPath, password] = process.argv;
+  if (!inputPath || !outputPath || !password) {
+    console.error('Usage: node lock_page.js <input.html> <output.html> <password>');
+    process.exit(1);
+  }
+
+  const html = fs.readFileSync(inputPath, 'utf8');
+
+  const bodyOpenMatch = html.match(/<body[^>]*>/i);
+  const bodyCloseIdx = html.lastIndexOf('</body>');
+  if (!bodyOpenMatch || bodyCloseIdx === -1) {
+    console.error('Could not find <body>...</body> in', inputPath);
+    process.exit(1);
+  }
+  const bodyOpenTag = bodyOpenMatch[0];
+  const bodyStart = bodyOpenMatch.index + bodyOpenTag.length;
+  const bodyInner = html.slice(bodyStart, bodyCloseIdx);
+
+  const payload = await encryptText(bodyInner, password);
+  const bootstrap = buildBootstrap(payload);
+
+  const headCloseIdx = html.indexOf('</head>');
+  const newHead = html.slice(0, headCloseIdx) + `<style>${LOCK_CSS}</style>\n` + html.slice(headCloseIdx, bodyOpenMatch.index);
+
+  const newHtml = newHead + bodyOpenTag + bootstrap + '\n</body></html>';
+
+  fs.writeFileSync(outputPath, newHtml, 'utf8');
+  console.log('Locked', inputPath, '->', outputPath, `(${(bodyInner.length/1024).toFixed(1)}KB plaintext body encrypted)`);
+}
+
+main();
