@@ -1700,9 +1700,8 @@ function _buildTendencies(d) {
   if(persData&&persData.filter(function(p){return p.n>=5;}).length){
     h+='<div class="sec-hdr"><div class="sdot" style="background:#4488DD"></div>Personnel Tendency</div>';
     h+='<div class="tbl-scroll"><table class="tbl"><thead><tr><th>Personnel</th><th class="r">Plays</th><th class="r">Share</th><th class="r">Run</th><th class="r">Pass</th><th class="r">Run%</th><th class="r">Avg</th><th class="r">Eff</th></tr></thead><tbody>';
-    var pLbls={'11':'CATS (11) — 1RB·1TE·3WR','12':'BIRDS (12) — 1RB·2TE·2WR','21':'HORSES (21) — 2RB·1TE·2WR','13':'DOGS (13) — 1RB·3TE·1WR'};
     persData.filter(function(p){return p.n>=5;}).forEach(function(p,i){
-      var lbl=pLbls[p.pers]||p.pers;
+      var lbl=p.pers;
       var rp2=p.n>0?Math.round((p.run_n||0)/p.n*100):0;
       var pct2=Math.round(p.n/n_total*100);
       h+='<tr class="'+(p.pers==='11'||p.pers==='12'?'fam-total':'scheme-row-'+(i%2===0?'even':'odd'))+'">';
@@ -1744,9 +1743,9 @@ function _computeAlerts(downData,persData,runFams,passCons,n_total) {
   if(persData&&persData.length){
     var p11=null; persData.forEach(function(x){if(x.pers==='11')p11=x;});
     if(p11){var pp=Math.round(p11.n/n_total*100);
-      if(pp>=78) alerts.push({level:'warn',title:'Personnel: Heavy CATS (11)',msg:pp+'% of snaps in 11 personnel — opponents will align exclusively vs 3-WR. Incorporate BIRDS (12).'});
-      else if(pp>=60) alerts.push({level:'info',title:'Personnel: Mostly CATS',msg:pp+'% in 11 personnel. Ensure 12 personnel is ready when needed.'});
-      else alerts.push({level:'good',title:'Personnel Diversity',msg:pp+'% CATS (11) — opponents must prepare for multiple groupings.'});
+      if(pp>=78) alerts.push({level:'warn',title:'Personnel: Heavy 11',msg:pp+'% of snaps in 11 personnel — opponents will align exclusively vs 3-WR. Incorporate 12 personnel.'});
+      else if(pp>=60) alerts.push({level:'info',title:'Personnel: Mostly 11',msg:pp+'% in 11 personnel. Ensure 12 personnel is ready when needed.'});
+      else alerts.push({level:'good',title:'Personnel Diversity',msg:pp+'% in 11 personnel — opponents must prepare for multiple groupings.'});
     }
   }
   if(runFams&&runFams.length>=2){
