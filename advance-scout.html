@@ -409,7 +409,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
             <div class="ch"><canvas id="ch-ranks"></canvas></div>
           </div>
           <div class="card">
-            <div class="card-hd">Top 3 Yardage Games vs Maryland</div>
+            <div class="card-hd" id="top3-hd">Top 3 Yardage Games vs Maryland</div>
             <table class="tbl" id="top3-tbl"></table>
           </div>
         </div>
@@ -423,7 +423,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <!-- ===== DEPTH CHART ===== -->
     <div class="sec" id="sec-depth">
       <div class="sec-hd"><div class="sec-title">Defensive Depth Chart</div><div class="sec-line"></div></div>
-      <div class="callout warn"><strong>Transfers In:</strong> #96 Jayvon Parker (DL–Washington) · #95 Armon Parker (DL–Washington) · #99 Lavon Johnson (DL–Texas) · #24 Amari Jackson (CB–Boston College) · #88 Derrick LeBlanc (DL–Central Florida)</div>
+      <div class="callout warn" id="transfers-in-callout" style="display:none"><strong>Transfers In:</strong> <span id="transfers-in-text"></span></div>
       <div class="card">
         <div class="card-hd">Secondary</div>
         <div class="dc-row" id="dc-secondary"></div>
@@ -1311,7 +1311,8 @@ They featured almost exclusively Odd Bear Tite &amp; Bear Zero defenses, mixing 
 <script>
 // ==================== DATA ====================
 const MARYLAND_DATA = {
-  meta: { opponent: 'MARYLAND', info: '2025 Season · DC: Ted Monachino (2nd Season) · Big Ten' },
+  meta: { opponent: 'MARYLAND', info: '2025 Season · DC: Ted Monachino (2nd Season) · Big Ten', conf: 'B10' },
+  transfersIn: '#96 Jayvon Parker (DL–Washington) · #95 Armon Parker (DL–Washington) · #99 Lavon Johnson (DL–Texas) · #24 Amari Jackson (CB–Boston College) · #88 Derrick LeBlanc (DL–Central Florida)',
   dc: {
     name: 'Ted Monachino',
     title: 'Defensive Coordinator & Outside Linebackers Coach',
@@ -1433,7 +1434,8 @@ let currentYear = "2026";
 
 function blankTeamData(key) {
   return {
-    meta: { opponent: TEAM_LABELS[key] || key, info: currentYear + " Season · Awaiting scouting data" },
+    meta: { opponent: TEAM_LABELS[key] || key, info: currentYear + " Season · Awaiting scouting data", conf: "Conf" },
+    transfersIn: '',
     dc: { name: "", title: "", bio: "", career: [] },
     stats: MARYLAND_DATA.stats.map(function(s){ return { label:s.label, val:"—", conf:0, nat:0, dir:"" }; }),
     fastFacts: [],
@@ -1448,7 +1450,7 @@ function blankTeamData(key) {
 
 // TEAMS_DATA holds one data object per opponent. MARYLAND and VMI start populated (already built);
 // every other opponent starts blank and fills in via CSV drop or a Claude-baked update.
-const VMI_DATA = {"meta": {"opponent": "VMI", "info": "2026 Season · DC: Jared Backus (1st Season) · SoCon"}, "dc": {"name": "Jared Backus", "title": "Defensive Coordinator", "bio": "Jared Backus was hired to lead the VMI defense after 12 consecutive seasons as DC at Cornell (2013–2025), where the Big Red built a reputation as an aggressive, ball-hawking, havoc-creating defense — 133 takeaways, 78 forced fumbles, and 451 TFLs in his first 100 games there. A 30+ year coaching veteran at 10 different schools, he spent his early seasons as a linebackers/DL coach before his first coordinator job at Bucknell in 2002, where he worked under current VMI head coach Ashley Ingram. He brings an aggressive 3-4 scheme to a VMI defense in the middle of a significant rebuild — last year's top four tacklers are gone via graduation or the portal, and the roster (especially the defensive line and cornerback spots) is young and thin on depth.", "career": [{"years": "1994", "school": "King's College", "role": "S&C", "nfl": false}, {"years": "1995", "school": "Springfield College", "role": "GA", "nfl": false}, {"years": "1996–1997", "school": "Rutgers", "role": "GA", "nfl": false}, {"years": "1998", "school": "Pace", "role": "Asst.", "nfl": false}, {"years": "1999–2001", "school": "Maine", "role": "STC", "nfl": false}, {"years": "2002–2006", "school": "Bucknell", "role": "DC", "nfl": false}, {"years": "2006–2009", "school": "Temple", "role": "Asst.", "nfl": false}, {"years": "2009–2013", "school": "Princeton", "role": "DC", "nfl": false}, {"years": "2013–2025", "school": "Cornell", "role": "DC/AHC", "nfl": false}, {"years": "Present", "school": "VMI", "role": "DC", "nfl": false}]}, "stats": [{"label": "Total Defense", "val": "363.2 YPG", "conf": 4, "nat": 51, "dir": "warn"}, {"label": "Scoring Defense", "val": "26.0 PPG", "conf": 5, "nat": 58, "dir": "warn"}, {"label": "Run Defense", "val": "160.6 YPG", "conf": 5, "nat": 65, "dir": "warn"}, {"label": "Pass Defense", "val": "202.6 YPG", "conf": 4, "nat": 38, "dir": "good"}, {"label": "Takeaways", "val": "15", "conf": 4, "nat": 61, "dir": "warn"}, {"label": "3rd Down Def.", "val": "43.4%", "conf": 3, "nat": 89, "dir": "bad"}, {"label": "Red Zone Def.", "val": "77.5%", "conf": 5, "nat": 26, "dir": "good"}], "fastFacts": ["<span class=\"hlb\">ODD TITE family runs 73–77%</span> of all snaps — effectively a one-front defense. ODD TITE R is the #1 call (35–37%), ODD TITE straight is #2 (19–23%), ODD TITE BEAR #3 (13%).", "<span class=\"hl\">QTRS + QTRS MAX</span> account for 31% of snaps. 4 MAX is the single most-called coverage at 15–17%.", "<span class=\"hlb\">MISSILE family</span> (MISSILE, MISSILE X, MISSILE WK, MISSILE X WK) accounts for <span class=\"hlb\">57% of all blitz calls</span>. Blitzes come from the FIELD side 60% of the time.", "Blitz rate climbs on critical downs: <span class=\"hl\">31% normal downs, 32% conversion downs, 38% red zone.</span>", "<span class=\"hlb\">MID ZONE</span> gives them the most trouble at <span class=\"hlb\">66% efficiency</span> allowed. TITE and WIDE ZONE both sit at 54%. Overall run efficiency allowed: 53% (132/247)."], "exploits": [{"text": "Attack <strong>+1 runs out of big personnel Wildcat formations</strong> — a documented weakness at the goal line per their own scouting notes."}, {"text": "Their <strong>overcommitment to stopping the run</strong> creates run-pass conflict for LBs and Safeties — expect matchup wins on the perimeter with red zone isolation or rub concepts."}, {"text": "They <strong>lack precision defending play-action pass and slide bootlegs.</strong>"}, {"text": "<strong>Cover 0 usage escalates</strong> every time the ball moves inside the 12: 10% (RZ) → 22% (Score Zone) → 44% (Goal Line). Load up man-beaters near the goal line."}, {"text": "<strong>MID ZONE</strong> is their most vulnerable run scheme at 66% efficiency allowed — well above TITE/WIDE ZONE (54%) and GAP (43%)."}, {"text": "At the <strong>+3 goal line</strong>, BEAR is their only front (50%) and every blitz is a 6-man M WRAP — no zone coverage, no 5-man pressure looks."}], "sitRef": [{"sit": "Normal Downs", "lines": ["ODD front 77% (ODD TITE R 35–37%)", "QTRS/QTRS MAX 31% of coverage", "31% blitz — MISSILE family 57% of blitz"]}, {"sit": "3rd & 3-5", "lines": ["ODD TITE R 38%, ODD TITE 15%", "4 MAX 18%, 1 BLITZ 16%", "32% CD blitz overall"]}, {"sit": "3rd & 6-10", "lines": ["ODD TITE R 37%, CUB/KC common", "4 MAX 31% leads coverage", "Stunt rate climbs to 22%"]}, {"sit": "Red Zone +10", "lines": ["ODD TITE R anchors all 3 zones (38%)", "Cover 0 climbs 10%→22%→44%", "38% blitz rate in RZ"]}], "depthChart": {"secondary": [{"pos": "FS", "players": [{"num": "#14", "name": "EJ Wilborne", "info": "6’1 205 SO · Fredricksburg, VA", "starter": true}, {"num": "#15", "name": "Jordan Tolson", "info": "6’2 185 SO · Montross, VA", "starter": false}]}, {"pos": "WLB", "players": [{"num": "#21", "name": "Camden Clinton", "info": "6’3 222 SR · Evington, VA", "starter": true}, {"num": "#39", "name": "Camron Watkins", "info": "6’2 215 RS SO · Wingate, PA", "starter": false}]}, {"pos": "MLB", "players": [{"num": "#43", "name": "Henry Berling", "info": "6’3 235 RS JR · Richmond, VA", "starter": true}, {"num": "#54", "name": "Baylor Necessary", "info": "6’3 220 SO · Johnson City, TN", "starter": false}]}, {"pos": "SS", "players": [{"num": "#2", "name": "Anthony Allen", "info": "6’2 205 SO · Richmond, VA", "starter": true}, {"num": "#20", "name": "Logan Marshall", "info": "6’0 180 SO · Woodbridge, VA", "starter": false}]}], "dline": [{"pos": "BC", "players": [{"num": "#5", "name": "Ethan Haston", "info": "6’0 175 SO · Roanoke, VA", "starter": true}, {"num": "#29", "name": "Myles Berry", "info": "5’11 170 RS SO · Richmond, VA", "starter": false}]}, {"pos": "RUSH", "players": [{"num": "#0", "name": "Rod Tasco", "info": "6’4 215 SO · Roanoke, VA", "starter": true}, {"num": "#30", "name": "Nic Land", "info": "6’4 205 RS JR · (roster)", "starter": false}]}, {"pos": "DT", "players": [{"num": "#97", "name": "Carson Gue", "info": "6’3 235 SO · Ona, WV", "starter": true}, {"num": "#96", "name": "Will Ferguson", "info": "6’3 250 SO · (roster)", "starter": false}]}, {"pos": "NT", "players": [{"num": "#92", "name": "Jacob Moore", "info": "6’3 295 SR · Richmond, VA", "starter": true}, {"num": "#76", "name": "Christian Holland", "info": "6’3 310 SO · Ridgeway, VA", "starter": false}]}, {"pos": "DE", "players": [{"num": "#40", "name": "Phoenix Ward", "info": "6’4 270 SR · Chester, VA", "starter": true}, {"num": "#36", "name": "Jakari Nicely", "info": "6’0 220 RS SO · Daleville, VA", "starter": false}]}, {"pos": "N/S", "players": [{"num": "#4", "name": "Isaiah Grevious", "info": "6’1 240 RS JR · Charlottesville, VA", "starter": true}, {"num": "#25", "name": "Ayden Babich", "info": "6’1 205 RS JR · (roster)", "starter": false}]}, {"pos": "FC", "players": [{"num": "#11", "name": "Robert Powell", "info": "5’9 175 JR · Morgantown, WV", "starter": true}, {"num": "#16", "name": "Ashton Dixon", "info": "5’11 170 SO · Rustburg, VA", "starter": false}]}]}, "statLeaders": [{"cat": "Tackles", "players": ["S/N #4 Grevious (60)", "LB #43 Berling (50)", "SAF #14 Wilborne (43)"]}, {"cat": "Sacks", "players": ["DL #92 Moore (4.0)", "S/N #4 Grevious (1.5)", "DL #97 Gue (1.0)"]}, {"cat": "Interceptions", "players": ["SAF #14 Wilborne (1)", "SAF #2 Allen (1)", "CB #11 Powell (1)"]}, {"cat": "PBUs", "players": ["CB #11 Powell (2)", "S/N #4 Grevious (1)", "LB #8 Riveros (1)"]}], "top3": [{"opp": "DARTMOUTH", "rush": 254, "pass": null, "total": null}, {"opp": "COLUMBIA", "rush": 253, "pass": null, "total": 423}, {"opp": "PENN", "rush": 192, "pass": null, "total": null}, {"opp": "BROWN", "rush": null, "pass": 471, "total": 503}, {"opp": "HARVARD", "rush": null, "pass": 237, "total": 413}, {"opp": "BUCKNELL", "rush": null, "pass": 235, "total": null}], "runFamilies": [{"name": "TITE ZONE", "plays": 127, "eff": 54}, {"name": "MID ZONE", "plays": 35, "eff": 66}, {"name": "WIDE ZONE", "plays": 26, "eff": 54}, {"name": "GAP", "plays": 23, "eff": 43}, {"name": "DRAW", "plays": 4, "eff": 25}, {"name": "OPTION", "plays": 2, "eff": 100}]};
+const VMI_DATA = {"meta": {"opponent": "VMI", "info": "2026 Season · DC: Jared Backus (1st Season) · SoCon", "conf": "SoCon"}, "transfersIn": "", "dc": {"name": "Jared Backus", "title": "Defensive Coordinator", "bio": "Jared Backus was hired to lead the VMI defense after 12 consecutive seasons as DC at Cornell (2013–2025), where the Big Red built a reputation as an aggressive, ball-hawking, havoc-creating defense — 133 takeaways, 78 forced fumbles, and 451 TFLs in his first 100 games there. A 30+ year coaching veteran at 10 different schools, he spent his early seasons as a linebackers/DL coach before his first coordinator job at Bucknell in 2002, where he worked under current VMI head coach Ashley Ingram. He brings an aggressive 3-4 scheme to a VMI defense in the middle of a significant rebuild — last year's top four tacklers are gone via graduation or the portal, and the roster (especially the defensive line and cornerback spots) is young and thin on depth.", "career": [{"years": "1994", "school": "King's College", "role": "S&C", "nfl": false}, {"years": "1995", "school": "Springfield College", "role": "GA", "nfl": false}, {"years": "1996–1997", "school": "Rutgers", "role": "GA", "nfl": false}, {"years": "1998", "school": "Pace", "role": "Asst.", "nfl": false}, {"years": "1999–2001", "school": "Maine", "role": "STC", "nfl": false}, {"years": "2002–2006", "school": "Bucknell", "role": "DC", "nfl": false}, {"years": "2006–2009", "school": "Temple", "role": "Asst.", "nfl": false}, {"years": "2009–2013", "school": "Princeton", "role": "DC", "nfl": false}, {"years": "2013–2025", "school": "Cornell", "role": "DC/AHC", "nfl": false}, {"years": "Present", "school": "VMI", "role": "DC", "nfl": false}]}, "stats": [{"label": "Total Defense", "val": "363.2 YPG", "conf": 4, "nat": 51, "dir": "warn"}, {"label": "Scoring Defense", "val": "26.0 PPG", "conf": 5, "nat": 58, "dir": "warn"}, {"label": "Run Defense", "val": "160.6 YPG", "conf": 5, "nat": 65, "dir": "warn"}, {"label": "Pass Defense", "val": "202.6 YPG", "conf": 4, "nat": 38, "dir": "good"}, {"label": "Takeaways", "val": "15", "conf": 4, "nat": 61, "dir": "warn"}, {"label": "3rd Down Def.", "val": "43.4%", "conf": 3, "nat": 89, "dir": "bad"}, {"label": "Red Zone Def.", "val": "77.5%", "conf": 5, "nat": 26, "dir": "good"}], "fastFacts": ["<span class=\"hlb\">ODD TITE family runs 73–77%</span> of all snaps — effectively a one-front defense. ODD TITE R is the #1 call (35–37%), ODD TITE straight is #2 (19–23%), ODD TITE BEAR #3 (13%).", "<span class=\"hl\">QTRS + QTRS MAX</span> account for 31% of snaps. 4 MAX is the single most-called coverage at 15–17%.", "<span class=\"hlb\">MISSILE family</span> (MISSILE, MISSILE X, MISSILE WK, MISSILE X WK) accounts for <span class=\"hlb\">57% of all blitz calls</span>. Blitzes come from the FIELD side 60% of the time.", "Blitz rate climbs on critical downs: <span class=\"hl\">31% normal downs, 32% conversion downs, 38% red zone.</span>", "<span class=\"hlb\">MID ZONE</span> gives them the most trouble at <span class=\"hlb\">66% efficiency</span> allowed. TITE and WIDE ZONE both sit at 54%. Overall run efficiency allowed: 53% (132/247)."], "exploits": [{"text": "Attack <strong>+1 runs out of big personnel Wildcat formations</strong> — a documented weakness at the goal line per their own scouting notes."}, {"text": "Their <strong>overcommitment to stopping the run</strong> creates run-pass conflict for LBs and Safeties — expect matchup wins on the perimeter with red zone isolation or rub concepts."}, {"text": "They <strong>lack precision defending play-action pass and slide bootlegs.</strong>"}, {"text": "<strong>Cover 0 usage escalates</strong> every time the ball moves inside the 12: 10% (RZ) → 22% (Score Zone) → 44% (Goal Line). Load up man-beaters near the goal line."}, {"text": "<strong>MID ZONE</strong> is their most vulnerable run scheme at 66% efficiency allowed — well above TITE/WIDE ZONE (54%) and GAP (43%)."}, {"text": "At the <strong>+3 goal line</strong>, BEAR is their only front (50%) and every blitz is a 6-man M WRAP — no zone coverage, no 5-man pressure looks."}], "sitRef": [{"sit": "Normal Downs", "lines": ["ODD front 77% (ODD TITE R 35–37%)", "QTRS/QTRS MAX 31% of coverage", "31% blitz — MISSILE family 57% of blitz"]}, {"sit": "3rd & 3-5", "lines": ["ODD TITE R 38%, ODD TITE 15%", "4 MAX 18%, 1 BLITZ 16%", "32% CD blitz overall"]}, {"sit": "3rd & 6-10", "lines": ["ODD TITE R 37%, CUB/KC common", "4 MAX 31% leads coverage", "Stunt rate climbs to 22%"]}, {"sit": "Red Zone +10", "lines": ["ODD TITE R anchors all 3 zones (38%)", "Cover 0 climbs 10%→22%→44%", "38% blitz rate in RZ"]}], "depthChart": {"secondary": [{"pos": "FS", "players": [{"num": "#14", "name": "EJ Wilborne", "info": "6’1 205 SO · Fredricksburg, VA", "starter": true}, {"num": "#15", "name": "Jordan Tolson", "info": "6’2 185 SO · Montross, VA", "starter": false}]}, {"pos": "WLB", "players": [{"num": "#21", "name": "Camden Clinton", "info": "6’3 222 SR · Evington, VA", "starter": true}, {"num": "#39", "name": "Camron Watkins", "info": "6’2 215 RS SO · Wingate, PA", "starter": false}]}, {"pos": "MLB", "players": [{"num": "#43", "name": "Henry Berling", "info": "6’3 235 RS JR · Richmond, VA", "starter": true}, {"num": "#54", "name": "Baylor Necessary", "info": "6’3 220 SO · Johnson City, TN", "starter": false}]}, {"pos": "SS", "players": [{"num": "#2", "name": "Anthony Allen", "info": "6’2 205 SO · Richmond, VA", "starter": true}, {"num": "#20", "name": "Logan Marshall", "info": "6’0 180 SO · Woodbridge, VA", "starter": false}]}], "dline": [{"pos": "BC", "players": [{"num": "#5", "name": "Ethan Haston", "info": "6’0 175 SO · Roanoke, VA", "starter": true}, {"num": "#29", "name": "Myles Berry", "info": "5’11 170 RS SO · Richmond, VA", "starter": false}]}, {"pos": "RUSH", "players": [{"num": "#0", "name": "Rod Tasco", "info": "6’4 215 SO · Roanoke, VA", "starter": true}, {"num": "#30", "name": "Nic Land", "info": "6’4 205 RS JR · (roster)", "starter": false}]}, {"pos": "DT", "players": [{"num": "#97", "name": "Carson Gue", "info": "6’3 235 SO · Ona, WV", "starter": true}, {"num": "#96", "name": "Will Ferguson", "info": "6’3 250 SO · (roster)", "starter": false}]}, {"pos": "NT", "players": [{"num": "#92", "name": "Jacob Moore", "info": "6’3 295 SR · Richmond, VA", "starter": true}, {"num": "#76", "name": "Christian Holland", "info": "6’3 310 SO · Ridgeway, VA", "starter": false}]}, {"pos": "DE", "players": [{"num": "#40", "name": "Phoenix Ward", "info": "6’4 270 SR · Chester, VA", "starter": true}, {"num": "#36", "name": "Jakari Nicely", "info": "6’0 220 RS SO · Daleville, VA", "starter": false}]}, {"pos": "N/S", "players": [{"num": "#4", "name": "Isaiah Grevious", "info": "6’1 240 RS JR · Charlottesville, VA", "starter": true}, {"num": "#25", "name": "Ayden Babich", "info": "6’1 205 RS JR · (roster)", "starter": false}]}, {"pos": "FC", "players": [{"num": "#11", "name": "Robert Powell", "info": "5’9 175 JR · Morgantown, WV", "starter": true}, {"num": "#16", "name": "Ashton Dixon", "info": "5’11 170 SO · Rustburg, VA", "starter": false}]}]}, "statLeaders": [{"cat": "Tackles", "players": ["S/N #4 Grevious (60)", "LB #43 Berling (50)", "SAF #14 Wilborne (43)"]}, {"cat": "Sacks", "players": ["DL #92 Moore (4.0)", "S/N #4 Grevious (1.5)", "DL #97 Gue (1.0)"]}, {"cat": "Interceptions", "players": ["SAF #14 Wilborne (1)", "SAF #2 Allen (1)", "CB #11 Powell (1)"]}, {"cat": "PBUs", "players": ["CB #11 Powell (2)", "S/N #4 Grevious (1)", "LB #8 Riveros (1)"]}], "top3": [{"opp": "DARTMOUTH", "rush": 254, "pass": null, "total": null}, {"opp": "COLUMBIA", "rush": 253, "pass": null, "total": 423}, {"opp": "PENN", "rush": 192, "pass": null, "total": null}, {"opp": "BROWN", "rush": null, "pass": 471, "total": 503}, {"opp": "HARVARD", "rush": null, "pass": 237, "total": 413}, {"opp": "BUCKNELL", "rush": null, "pass": 235, "total": null}], "runFamilies": [{"name": "TITE ZONE", "plays": 127, "eff": 54}, {"name": "MID ZONE", "plays": 35, "eff": 66}, {"name": "WIDE ZONE", "plays": 26, "eff": 54}, {"name": "GAP", "plays": 23, "eff": 43}, {"name": "DRAW", "plays": 4, "eff": 25}, {"name": "OPTION", "plays": 2, "eff": 100}]};
 const TEAMS_DATA = { MARYLAND: MARYLAND_DATA, VMI: VMI_DATA };
 Object.keys(TEAM_LABELS).forEach(function(key){
   if (!TEAMS_DATA[key]) TEAMS_DATA[key] = blankTeamData(key);
@@ -1518,6 +1520,7 @@ function renderAll() {
   renderSitRef();
   renderDCProfile();
   renderStatsSection();
+  renderTransfersIn();
   renderDepthChart();
   renderStatLeaders();
   renderRunEffBars();
@@ -1547,7 +1550,7 @@ function renderStatCards() {
       <div class="sl">${s.label}</div>
       <div class="sv">${s.val}</div>
       <div class="sr">
-        <span class="rb c">B10: ${s.conf}th</span>
+        <span class="rb c">${(D.meta && D.meta.conf) || "Conf"}: ${s.conf}th</span>
         <span class="rb ${nc}">Nat: #${s.nat}</span>
       </div>
     </div>`;
@@ -1596,24 +1599,33 @@ function renderDCProfile() {
 }
 
 function renderStatsSection() {
+  const confLabel = (D.meta && D.meta.conf) || "Conf";
   const tbl = document.getElementById('stats-tbl');
-  tbl.innerHTML = `<thead><tr><th>Stat</th><th>#</th><th>B10 Rank</th><th>Nat. Rank</th></tr></thead>
+  tbl.innerHTML = `<thead><tr><th>Stat</th><th>#</th><th>${confLabel} Rank</th><th>Nat. Rank</th></tr></thead>
   <tbody>${D.stats.map(s => {
     const nc = natClass(s.nat, s.dir);
     return `<tr><td class="b">${s.label}</td><td>${s.val}</td><td>${s.conf}th</td><td><span class="rb ${nc}">#${s.nat}</span></td></tr>`;
   }).join('')}</tbody>`;
 
-  const top3 = document.getElementById('top3-tbl');
-  top3.innerHTML = `<thead><tr><th>Team</th><th>Rush Yds</th><th>Pass Yds</th><th>Total Yds</th></tr></thead>
-  <tbody>
-    <tr><td class="b">Indiana</td><td class="b hlb">367</td><td>—</td><td class="b hlb">588</td></tr>
-    <tr><td class="b">Rutgers</td><td class="b">256</td><td>—</td><td class="b">485</td></tr>
-    <tr><td class="b">Michigan</td><td class="b">228</td><td>—</td><td>—</td></tr>
-    <tr><td class="b">Michigan State</td><td>—</td><td class="b hlb">292</td><td>—</td></tr>
-    <tr><td class="b">Florida Atlantic</td><td>—</td><td class="b">277</td><td>—</td></tr>
-    <tr><td class="b">Washington</td><td>—</td><td class="b">275</td><td>—</td></tr>
-    <tr><td class="b">Nebraska</td><td>—</td><td>—</td><td class="b">453</td></tr>
-  </tbody>`;
+  const top3El = document.getElementById('top3-tbl');
+  const hd = document.getElementById('top3-hd');
+  if (hd) hd.textContent = 'Top 3 Yardage Games vs ' + (D.meta.opponent || currentTeam);
+  const top3 = D.top3 || [];
+  if (!top3.length) {
+    top3El.innerHTML = `<thead><tr><th>Team</th><th>Rush Yds</th><th>Pass Yds</th><th>Total Yds</th></tr></thead>
+    <tbody><tr><td colspan="4" class="txt-sm" style="text-align:center;color:var(--muted);padding:14px">No yardage-leader data yet for this opponent.</td></tr></tbody>`;
+    return;
+  }
+  // Highlight the single highest value in each numeric column, like the original hand-built table did.
+  const maxRush = Math.max(...top3.map(r => r.rush || 0));
+  const maxPass = Math.max(...top3.map(r => r.pass || 0));
+  const maxTotal = Math.max(...top3.map(r => r.total || 0));
+  const cell = (v, isMax) => v == null ? '<td>—</td>' : `<td class="b${isMax && v>0 ? ' hlb' : ''}">${v}</td>`;
+  top3El.innerHTML = `<thead><tr><th>Team</th><th>Rush Yds</th><th>Pass Yds</th><th>Total Yds</th></tr></thead>
+  <tbody>${top3.map(r => {
+    const name = (r.opp || '').replace(/\b\w/g, c => c.toUpperCase());
+    return `<tr><td class="b">${name}</td>${cell(r.rush, r.rush===maxRush)}${cell(r.pass, r.pass===maxPass)}${cell(r.total, r.total===maxTotal)}</tr>`;
+  }).join('')}</tbody>`;
 }
 
 function renderStatLeaders() {
@@ -1623,6 +1635,20 @@ function renderStatLeaders() {
       <div class="card-hd">${sl.cat}</div>
       ${sl.players.map((p,i) => `<div class="txt-sm" style="padding:4px 0;border-bottom:1px solid var(--bdr)"><strong>${i+1}.</strong> ${p}</div>`).join('')}
     </div>`).join('');
+}
+
+function renderTransfersIn() {
+  const callout = document.getElementById('transfers-in-callout');
+  const textEl = document.getElementById('transfers-in-text');
+  if (!callout || !textEl) return;
+  const txt = D.transfersIn || '';
+  if (txt) {
+    textEl.textContent = txt;
+    callout.style.display = '';
+  } else {
+    textEl.textContent = '';
+    callout.style.display = 'none';
+  }
 }
 
 function renderDepthChart() {
@@ -2156,5 +2182,4 @@ document.addEventListener('DOMContentLoaded', () => {
   selectTeam('MARYLAND');
 });
 </script>
-</body>
-</html>
+</b
