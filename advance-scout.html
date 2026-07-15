@@ -193,21 +193,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
   #tbar{position:static!important;box-shadow:none!important;border-bottom:2px solid var(--m)!important;padding:8px 16px!important}
   #tbar button,#tbar .btn{display:none!important}
   .tbar-name{font-size:18px!important}
-  /* SECTIONS: only print what's real for the CURRENTLY SELECTED team.
-     Shallow sections (Overview/DC/Stats/Depth) always bulk-print since they're always
-     accurate per-team. Deep scheme sections (Run/ND/CD/RZ/GL) only bulk-print when the
-     selected team actually has a built scheme breakdown — otherwise they stay hidden so
-     no other team's leftover content can ever show up in a printout. The "not built yet"
-     placeholder only prints if it's literally the page you're looking at. */
+  /* SECTIONS: every team now has the exact same 9-section shell (Overview/DC/Stats/Depth/
+     Run/ND/CD/RZ/GL), populated with either that team's real report or the shared blank
+     placeholder content -- so printing is uniform for every team, no special-casing needed. */
   .sec{display:none!important}
-  #sec-overview,#sec-dc,#sec-stats,#sec-depth{display:block!important;page-break-before:always;break-before:page;page-break-inside:avoid;break-inside:avoid}
+  #sec-overview,#sec-dc,#sec-stats,#sec-depth,
+  #sec-run,#sec-nd,#sec-cd,#sec-rz,#sec-gl{display:block!important;page-break-before:always;break-before:page;page-break-inside:avoid;break-inside:avoid}
   #sec-overview{page-break-before:avoid;break-before:avoid}
-  body:not(.no-deep-data) #sec-run,
-  body:not(.no-deep-data) #sec-nd,
-  body:not(.no-deep-data) #sec-cd,
-  body:not(.no-deep-data) #sec-rz,
-  body:not(.no-deep-data) #sec-gl{display:block!important;page-break-before:always;break-before:page;page-break-inside:avoid;break-inside:avoid}
-  #sec-deep-pending.on{display:block!important;page-break-before:always;break-before:page;page-break-inside:avoid;break-inside:avoid}
   .sec-hd{page-break-after:avoid;break-after:avoid}
   /* SUB-TABS: hide tab buttons, show all content */
   .stabs{display:none!important}
@@ -437,6 +429,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
     <!-- ===== RUN DEFENSE ===== -->
     <div class="sec" id="sec-run">
       <div class="sec-hd"><div class="sec-title">Run Defense — DL Techniques &amp; Efficiencies</div><div class="sec-line"></div></div>
+      <div class="sec-body" id="sec-run-body">
       <div class="callout success"><strong>Overall Run Efficiency Allowed: 56%</strong> (154/277) — Mid Zone is their most vulnerable at 59%. Wide Zone most defended at 52%. Option: 0% efficiency allowed (3 plays).</div>
       <div class="g2 mb14">
         <div class="card">
@@ -491,11 +484,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           </div>
         </div>
       </div>
+      </div><!-- /sec-run-body -->
     </div>
 
     <!-- ===== NORMAL DOWNS ===== -->
     <div class="sec" id="sec-nd">
       <div class="sec-hd"><div class="sec-title">Normal Downs — Fronts, Coverage &amp; Blitz</div><div class="sec-line"></div></div>
+      <div class="sec-body" id="sec-nd-body">
       <div class="stabs" id="nd-tabs">
         <div class="stab on" onclick="switchStab('nd','formations')">Formations</div>
         <div class="stab" onclick="switchStab('nd','fronts')">Fronts</div>
@@ -774,11 +769,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           </div>
         </div>
       </div>
-    </div><!-- end ND -->
+    </div><!-- /sec-nd-body --></div><!-- end ND -->
 
     <!-- ===== CONVERSION DOWNS ===== -->
     <div class="sec" id="sec-cd">
       <div class="sec-hd"><div class="sec-title">Conversion Downs — Fronts, Coverage &amp; Blitz</div><div class="sec-line"></div></div>
+      <div class="sec-body" id="sec-cd-body">
       <div class="stabs" id="cd-tabs">
         <div class="stab on" onclick="switchStab('cd','formations')">Formations</div>
         <div class="stab" onclick="switchStab('cd','fronts')">Fronts</div>
@@ -1023,11 +1019,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           </div>
         </div>
       </div>
-    </div><!-- end CD -->
+    </div><!-- /sec-cd-body --></div><!-- end CD -->
 
     <!-- ===== RED ZONE ===== -->
     <div class="sec" id="sec-rz">
       <div class="sec-hd"><div class="sec-title">Red Zone — +27 to +1</div><div class="sec-line"></div></div>
+      <div class="sec-body" id="sec-rz-body">
       <div class="g4 mb14">
         <div class="pcard int"><div class="ppct">51%</div><div class="plbl">RZ Blitz Rate</div><div class="pcnt">39/76 plays</div></div>
         <div class="pcard fld"><div class="ppct">88%</div><div class="plbl">Man/Zero Inside +10</div><div class="pcnt">Up from 16% outside</div></div>
@@ -1083,11 +1080,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           </table>
         </div>
       </div>
+      </div><!-- /sec-rz-body -->
     </div>
 
     <!-- ===== GOAL LINE ===== -->
     <div class="sec" id="sec-gl">
       <div class="sec-hd"><div class="sec-title">Goal Line — +3 to +1</div><div class="sec-line"></div></div>
+      <div class="sec-body" id="sec-gl-body">
       <div class="callout danger"><strong>KEY:</strong> Zero/Man coverage dominates (0 BLITZ 40% · GL 0 33%). 6-Man pressure is the primary blitz package (83% of blitz plays). Expect physical, downhill defense — gap/power run concepts may be most effective.</div>
       <div class="g3">
         <div class="card">
@@ -1137,19 +1136,192 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
           <div class="callout warn" style="margin:0"><strong>SAW</strong> is the top 6-man package on GL — watch for wide pressure / twists.</div>
         </div>
       </div>
-    </div>
-
-    <!-- ===== DEEP SCHEME DATA PENDING (shown instead of Run D / ND / CD / RZ / GL when no PFF/XOS breakdown has been built for this opponent yet) ===== -->
-    <div class="sec" id="sec-deep-pending">
-      <div class="no-data-state">
-        <div class="nd-icon">🏈</div>
-        <h2 id="deep-pending-name">Scheme Breakdown Not Built Yet</h2>
-        <p>Run Defense, Normal/Conversion Downs, Red Zone, and Goal Line for this opponent haven't been built yet. Drop their PFF/XOS play export on this page to update the Overview, DC Profile, Statistics, and Depth Chart above instantly — then send that same file to Claude to build the full scheme breakdown and publish it permanently.</p>
-      </div>
+      </div><!-- /sec-gl-body -->
     </div>
 
   </div><!-- /content -->
 </div><!-- /main -->
+
+<script type="text/html" id="tmpl-run-BLANK">
+<div class="callout success"><strong>Run Efficiency Allowed: —</strong> — awaiting PFF/XOS breakdown for this opponent.</div>
+<div class="g2 mb14">
+<div class="card"><div class="card-hd">Run Family Efficiencies (Higher % = Better for Offense)</div><div id="run-eff-bars"></div><div class="txt-xs txt-muted mt8">No run-family data loaded yet for this opponent.</div></div>
+<div class="card"><div class="card-hd">Run Family Efficiency Chart</div><div class="ch-lg"><canvas id="ch-run-eff"></canvas></div></div>
+</div>
+<div class="g2">
+<div class="card"><div class="card-hd">DL Techniques — 3 Tech (RB Side)</div><table class="tbl"><thead><tr><th>Alignment</th><th># Plays</th></tr></thead><tbody><tr><td colspan="2" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+<div class="card"><div class="card-hd">Run Game Reactions</div><div class="g2">
+<div><div class="card-hd" style="margin-bottom:6px">Read / Unblocked DE</div><table class="tbl"><thead><tr><th>Reaction</th><th>#</th></tr></thead><tbody><tr><td colspan="2" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+<div><div class="card-hd" style="margin-bottom:6px">POA DE</div><table class="tbl"><thead><tr><th>Reaction</th><th>#</th></tr></thead><tbody><tr><td colspan="2" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+</div></div>
+</div></script>
+<script type="text/html" id="tmpl-nd-BLANK">
+      <div class="stabs" id="nd-tabs">
+        <div class="stab on" onclick="switchStab('nd','formations')">Formations</div>
+        <div class="stab" onclick="switchStab('nd','fronts')">Fronts</div>
+        <div class="stab" onclick="switchStab('nd','coverage')">Coverage</div>
+        <div class="stab" onclick="switchStab('nd','blitz')">Blitz</div>
+      </div>
+      <div class="stcon on" id="nd-formations">
+        <div class="print-label">Normal Downs — Formation Tendencies</div>
+        <div class="callout info">No Normal Downs data loaded yet for this opponent.</div>
+        <div class="g2">
+          <div class="card"><div class="card-hd">Formation Tendencies — Normal Downs</div><table class="tbl"><thead><tr><th>Formation</th><th>Pers</th><th>Plays</th><th>Blitz%</th><th>Top Front</th><th>Top Coverage</th></tr></thead><tbody><tr><td colspan="6" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div class="card"><div class="card-hd">Formation Frequency vs Blitz Rate</div><div class="ch-lg"><canvas id="ch-nd-form"></canvas></div></div>
+        </div>
+      </div>
+      <div class="stcon" id="nd-fronts">
+        <div class="print-label">Normal Downs — Fronts</div>
+        <div class="g2 mb14">
+          <div class="card"><div class="card-hd">Front Family — Overall</div><div class="ch-sm"><canvas id="ch-nd-fronts-donut"></canvas></div></div>
+          <div class="card"><div class="card-hd">Front Family Distribution</div><table class="tbl"><thead><tr><th>Family</th><th># Plays</th><th>% Snaps</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+        </div>
+        <div class="g2">
+          <div class="card"><div class="card-hd">Fronts — 1st Down</div><table class="tbl"><thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div class="card"><div class="card-hd">Fronts — 2nd &amp; Short (1-3)</div><table class="tbl"><thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div class="card"><div class="card-hd">Fronts — 2nd &amp; Med (4-6)</div><table class="tbl"><thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div class="card"><div class="card-hd">Fronts — 2nd &amp; Long (7+)</div><table class="tbl"><thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+        </div>
+      </div>
+      <div class="stcon" id="nd-coverage">
+        <div class="print-label">Normal Downs — Coverage</div>
+        <div class="g2 mb14">
+          <div class="card"><div class="card-hd">Coverage Family — Overall</div><div class="ch-sm"><canvas id="ch-nd-cov-donut"></canvas></div></div>
+          <div class="card"><div class="card-hd">Coverage Distribution</div><table class="tbl"><thead><tr><th>Family (Shell)</th><th># Plays</th><th>% Snaps</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+        </div>
+        <div class="g2">
+          <div class="card"><div class="card-hd">Coverage — 1st Down</div><table class="tbl"><thead><tr><th>Coverage</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div class="card"><div class="card-hd">Coverage — 2nd &amp; Short (1-3)</div><table class="tbl"><thead><tr><th>Coverage</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div class="card"><div class="card-hd">Coverage — 2nd &amp; Med (4-6)</div><table class="tbl"><thead><tr><th>Coverage</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div class="card"><div class="card-hd">Coverage — 2nd &amp; Long (7+)</div><table class="tbl"><thead><tr><th>Coverage</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+        </div>
+      </div>
+      <div class="stcon" id="nd-blitz">
+        <div class="print-label">Normal Downs — Blitz</div>
+        <div class="callout danger">No blitz data loaded yet for this opponent.</div>
+        <div class="g4 mb14">
+          <div class="pcard int"><div class="ppct">—</div><div class="plbl">Internal</div><div class="pcnt">No data</div></div>
+          <div class="pcard fld"><div class="ppct">—</div><div class="plbl">Field</div><div class="pcnt">No data</div></div>
+          <div class="pcard dbl"><div class="ppct">—</div><div class="plbl">Dbl Edge</div><div class="pcnt">No data</div></div>
+          <div class="pcard bnd"><div class="ppct">—</div><div class="plbl">Boundary</div><div class="pcnt">No data</div></div>
+        </div>
+        <div class="g2">
+          <div>
+            <div class="card mb14"><div class="card-hd">5-Man Pressure Schemes</div><table class="tbl"><thead><tr><th>Scheme</th><th>#</th><th>% of Blitz</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+            <div class="card"><div class="card-hd">6-Man Pressure Schemes</div><table class="tbl"><thead><tr><th>Scheme</th><th>#</th><th>% of Blitz</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          </div>
+          <div>
+            <div class="card mb14"><div class="card-hd">RB Blitz Tendency (Normal Downs)</div><table class="tbl"><thead><tr><th>RB Alignment</th><th># Plays</th><th>% of Blitz</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+            <div class="card mb14"><div class="card-hd">Blitz by Personnel</div><table class="tbl"><thead><tr><th>Off Pers</th><th>ND Plays</th><th>Blitz</th><th>Blitz%</th></tr></thead><tbody><tr><td colspan="4" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+            <div class="card"><div class="card-hd">Coverage on Blitz</div><table class="tbl"><thead><tr><th>Coverage</th><th># Plays</th><th>% of Blitz</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          </div>
+        </div>
+      </div></script>
+<script type="text/html" id="tmpl-cd-BLANK">
+      <div class="stabs" id="cd-tabs">
+        <div class="stab on" onclick="switchStab('cd','formations')">Formations</div>
+        <div class="stab" onclick="switchStab('cd','fronts')">Fronts</div>
+        <div class="stab" onclick="switchStab('cd','coverage')">Coverage</div>
+        <div class="stab" onclick="switchStab('cd','blitz')">Blitz</div>
+      </div>
+      <div class="stcon on" id="cd-formations">
+        <div class="print-label">Conversion Downs — Formation Tendencies</div>
+        <div class="callout warn">No Conversion Downs data loaded yet for this opponent.</div>
+        <div class="g2">
+          <div class="card"><div class="card-hd">Formation Tendencies — Conversion Downs</div><table class="tbl"><thead><tr><th>Formation</th><th>Pers</th><th>Plays</th><th>Blitz%</th><th>Top Front</th><th>Top Coverage</th></tr></thead><tbody><tr><td colspan="6" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div class="card"><div class="card-hd">Conversion Downs — Formation Frequency vs Blitz Rate</div><div class="ch-lg"><canvas id="ch-cd-form"></canvas></div></div>
+        </div>
+      </div>
+      <div class="stcon" id="cd-fronts">
+        <div class="print-label">Conversion Downs — Fronts</div>
+        <div class="g2 mb14">
+          <div class="card"><div class="card-hd">Front Family — Conversion Downs Overall</div><table class="tbl"><thead><tr><th>Family</th><th># Plays</th><th>% Snaps</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table><div class="ch-sm mt8"><canvas id="ch-cd-fronts-donut"></canvas></div></div>
+          <div class="card"><div class="card-hd">Fronts — 3rd &amp; 1</div><table class="tbl"><thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+        </div>
+        <div class="g4">
+          <div class="card"><div class="card-hd">3rd &amp; 2</div><table class="tbl"><thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div class="card"><div class="card-hd">3rd &amp; 3-5</div><table class="tbl"><thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div class="card"><div class="card-hd">3rd &amp; 6-10</div><table class="tbl"><thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div class="card"><div class="card-hd">3rd &amp; 11+</div><table class="tbl"><thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+        </div>
+      </div>
+      <div class="stcon" id="cd-coverage">
+        <div class="print-label">Conversion Downs — Coverage</div>
+        <div class="g2 mb14">
+          <div class="card"><div class="card-hd">Coverage Family — Conversion Downs</div><div class="ch-sm"><canvas id="ch-cd-cov-donut"></canvas></div></div>
+          <div class="card"><div class="card-hd">Coverage Distribution</div><table class="tbl"><thead><tr><th>Family (Shell)</th><th># Plays</th><th>% Snaps</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+        </div>
+        <div class="g4">
+          <div class="card"><div class="card-hd">3rd &amp; 1-2</div><table class="tbl"><thead><tr><th>Coverage</th><th>%</th></tr></thead><tbody><tr><td colspan="2" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div class="card"><div class="card-hd">3rd &amp; 3-5</div><table class="tbl"><thead><tr><th>Coverage</th><th>%</th></tr></thead><tbody><tr><td colspan="2" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div class="card"><div class="card-hd">3rd &amp; 6-10</div><table class="tbl"><thead><tr><th>Coverage</th><th>%</th></tr></thead><tbody><tr><td colspan="2" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div class="card"><div class="card-hd">3rd &amp; 11+</div><table class="tbl"><thead><tr><th>Coverage</th><th>%</th></tr></thead><tbody><tr><td colspan="2" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+        </div>
+      </div>
+      <div class="stcon" id="cd-blitz">
+        <div class="print-label">Conversion Downs — Blitz</div>
+        <div class="callout danger">No blitz data loaded yet for this opponent.</div>
+        <div class="g4 mb14">
+          <div class="pcard int"><div class="ppct">—</div><div class="plbl">Internal</div><div class="pcnt">No data</div></div>
+          <div class="pcard fld"><div class="ppct">—</div><div class="plbl">Field</div><div class="pcnt">No data</div></div>
+          <div class="pcard bnd"><div class="ppct">—</div><div class="plbl">Boundary</div><div class="pcnt">No data</div></div>
+          <div class="pcard dbl"><div class="ppct">—</div><div class="plbl">Dbl Edge</div><div class="pcnt">No data</div></div>
+        </div>
+        <div class="g2">
+          <div class="card"><div class="card-hd">5-Man Pressure Schemes</div><table class="tbl"><thead><tr><th>Scheme</th><th>#</th><th>% of Blitz</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          <div>
+            <div class="card mb14"><div class="card-hd">6-Man Pressure Schemes</div><table class="tbl"><thead><tr><th>Scheme</th><th>#</th><th>% of Blitz</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+            <div class="card"><div class="card-hd">RB Blitz Tendency (Conversion)</div><table class="tbl"><thead><tr><th>RB Alignment</th><th>#</th><th>% of Blitz</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+          </div>
+        </div>
+      </div></script>
+<script type="text/html" id="tmpl-rz-BLANK">
+      <div class="g4 mb14">
+        <div class="pcard int"><div class="ppct">—</div><div class="plbl">RZ Blitz Rate</div><div class="pcnt">No data</div></div>
+        <div class="pcard fld"><div class="ppct">—</div><div class="plbl">Man/Zero Inside +10</div><div class="pcnt">No data</div></div>
+        <div class="pcard dbl"><div class="ppct">—</div><div class="plbl">Dbl Edge Inside +10</div><div class="pcnt">No data</div></div>
+        <div class="pcard bnd"><div class="ppct">—</div><div class="plbl">Blitz Inside +10</div><div class="pcnt">No data</div></div>
+      </div>
+      <div class="callout danger mb14">No Red Zone breakdown loaded yet for this opponent.</div>
+      <div class="g3 mb14">
+        <div class="zcard outer">
+          <div class="zhd">+27 to +13 (Outer RZ)</div>
+          <div class="txt-sm mb8"><strong>Front:</strong> No data yet</div>
+          <div class="txt-sm mb8"><strong>Coverage:</strong> No data yet</div>
+          <div class="txt-sm mb8"><strong>Blitz:</strong> No data yet</div>
+          <table class="tbl"><thead><tr><th>Situation</th><th>Plays</th><th>Blitz%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table>
+        </div>
+        <div class="zcard score">
+          <div class="zhd">+12 to +4 (Score Zone)</div>
+          <div class="txt-sm mb8"><strong>Front:</strong> No data yet</div>
+          <div class="txt-sm mb8"><strong>Coverage:</strong> No data yet</div>
+          <div class="txt-sm mb8"><strong>Blitz:</strong> No data yet</div>
+          <table class="tbl"><thead><tr><th>Situation</th><th>Plays</th><th>Blitz%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table>
+        </div>
+        <div class="zcard gl">
+          <div class="zhd">Goal Line +3 to +1</div>
+          <div class="txt-sm mb8"><strong>Front:</strong> No data yet</div>
+          <div class="txt-sm mb8" style="color:#fde68a"><strong>Coverage:</strong> No data yet</div>
+          <div class="txt-sm mb8"><strong>Blitz:</strong> No data yet</div>
+          <table class="tbl"><thead><tr><th>Down</th><th>Blitz%</th><th>Top Front</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table>
+        </div>
+      </div></script>
+<script type="text/html" id="tmpl-gl-BLANK">
+      <div class="callout danger"><strong>KEY:</strong> No Goal Line breakdown loaded yet for this opponent.</div>
+      <div class="g3">
+        <div class="card">
+          <div class="card-hd">Front Families</div>
+          <table class="tbl"><thead><tr><th>Family</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table>
+          <div class="mt8 card-hd">Specific Fronts</div>
+          <table class="tbl"><thead><tr><th>Front</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table>
+        </div>
+        <div class="card"><div class="card-hd">Coverage</div><table class="tbl"><thead><tr><th>Coverage</th><th>#</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+        <div class="card">
+          <div class="card-hd">Blitz Summary</div>
+          <table class="tbl"><thead><tr><th>Package</th><th>Plays</th><th>%</th></tr></thead><tbody><tr><td colspan="3" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table>
+          <div class="callout warn" style="margin:0">No package data loaded yet.</div>
+        </div>
+      </div></script>
 
 <!-- VMI deep-scheme templates (swapped into sec-run/nd/cd/rz/gl when VMI tab is selected) -->
 <script type="text/html" id="tmpl-run-VMI">
@@ -1471,20 +1643,25 @@ function _snapshotMarylandDeep() {
   if (_maryDeepSnapshot) return;
   _maryDeepSnapshot = {};
   DEEP_SECTIONS.forEach(function(sec){
-    const el = document.getElementById("sec-" + sec);
+    const el = document.getElementById("sec-" + sec + "-body");
     _maryDeepSnapshot[sec] = el ? el.innerHTML : "";
   });
 }
+// Every team shows the exact same shell (headers, tabs, cards, tables, charts) for these 5
+// sections -- only the numbers/labels inside change. Teams with a real built report (Maryland,
+// VMI, ...) get their own tmpl-<section>-<TEAM>; everyone else gets the shared BLANK template,
+// which mirrors Maryland's structure with placeholder values, so nobody ever sees a
+// differently-shaped "not built yet" page anymore.
 function _applyDeepContent(key) {
   _snapshotMarylandDeep();
-  if (!hasDeepData(key)) return; // sections stay hidden behind deep-pending; no need to touch their HTML
   DEEP_SECTIONS.forEach(function(sec){
-    const el = document.getElementById("sec-" + sec);
+    const el = document.getElementById("sec-" + sec + "-body");
     if (!el) return;
     if (key === "MARYLAND") {
       el.innerHTML = _maryDeepSnapshot[sec];
     } else {
-      const tmpl = document.getElementById("tmpl-" + sec + "-" + key);
+      const tmplKey = hasDeepData(key) ? key : "BLANK";
+      const tmpl = document.getElementById("tmpl-" + sec + "-" + tmplKey);
       if (tmpl) el.innerHTML = tmpl.innerHTML;
     }
   });
@@ -1498,8 +1675,6 @@ function selectTeam(key) {
   document.querySelectorAll(".opp-nav").forEach(function(n){ n.classList.remove("on"); });
   const navEl = document.getElementById("opp-nav-" + key);
   if (navEl) navEl.classList.add("on");
-
-  document.body.classList.toggle("no-deep-data", !hasDeepData(key));
 
   _applyDeepContent(key);
   renderAll();
@@ -1880,14 +2055,11 @@ function show(id) {
   document.querySelectorAll('.sec').forEach(s=>s.classList.remove('on'));
   document.querySelectorAll('.nav').forEach(n=>n.classList.remove('on'));
 
-  const showPending = DEEP_SECTION_IDS.indexOf(id) !== -1 && !hasDeepData(currentTeam);
-  const targetId = showPending ? 'sec-deep-pending' : ('sec-'+id);
-  const el = document.getElementById(targetId);
+  // Every section always shows now -- _applyDeepContent() guarantees sec-<x>-body is
+  // populated (either with the team's real report or the shared BLANK shell) for every
+  // team, so there is no separate "not built yet" page anymore.
+  const el = document.getElementById('sec-'+id);
   if(el) el.classList.add('on');
-  if (showPending) {
-    const nm = document.getElementById('deep-pending-name');
-    if (nm) nm.textContent = (TEAM_LABELS[currentTeam] || currentTeam) + ' — Scheme Breakdown Not Built Yet';
-  }
 
   document.querySelectorAll('.nav').forEach(n=>{
     if(n.getAttribute('onclick') && n.getAttribute('onclick').includes("'"+id+"'")){
@@ -1899,11 +2071,6 @@ function show(id) {
 }
 
 function switchStab(section, tabId) {
-  // Defensive: the 5 deep sections (run/nd/cd/rz/gl) only contain real,
-  // team-scoped content when hasDeepData(currentTeam) is true. If it's
-  // false, whatever markup is sitting in sec-<section> is stale leftover
-  // from whichever team was rendered there last, so refuse to reveal it.
-  if (DEEP_SECTION_IDS.indexOf(section) !== -1 && !hasDeepData(currentTeam)) return;
   const tabsEl = document.getElementById(section+'-tabs');
   if(!tabsEl) return;
   tabsEl.querySelectorAll('.stab').forEach((t,i) => {
@@ -2182,4 +2349,4 @@ document.addEventListener('DOMContentLoaded', () => {
   selectTeam('MARYLAND');
 });
 </script>
-</b
+</b                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
