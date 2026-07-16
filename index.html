@@ -22,8 +22,8 @@ main{flex:1;max-width:1100px;margin:0 auto;padding:48px 24px;width:100%;}
 .intro h2{font-size:22px;font-weight:800;margin-bottom:8px;}
 .intro p{color:var(--dim);font-size:13px;}
 .cards{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
-@media (max-width:720px){.cards{grid-template-columns:1fr;}}
-@media (max-width:520px){
+@media screen and (max-width:720px){.cards{grid-template-columns:1fr;}}
+@media screen and (max-width:520px){
   .hdr{padding:14px 16px;}
   .vt-logo{width:42px;height:42px;font-size:20px;}
   .hdr-title h1{font-size:15px;}
@@ -41,6 +41,19 @@ main{flex:1;max-width:1100px;margin:0 auto;padding:48px 24px;width:100%;}
 .hp{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:4px 12px;font-size:10px;color:rgba(255,255,255,.65);}
 .card-cta{margin-top:18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--orange);}
 footer{text-align:center;padding:20px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);}
+
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
+  body{background:#fff!important;color:#111!important;}
+  .hdr{background:#fff!important;border-bottom:2px solid var(--maroon)!important;box-shadow:none!important;}
+  .hdr-title h1{color:var(--maroon-dark)!important;}
+  .hdr-title p{color:#555!important;}
+  .card{background:#fff!important;border:1px solid #ccc!important;box-shadow:none!important;}
+  .card:hover{transform:none!important;}
+  .hp{background:none!important;border:1px solid #ccc!important;color:#333!important;}
+  .card-cta{color:var(--maroon)!important;}
+  footer{color:#777!important;}
+}
 </style>
 <style>
 /* ===== Password gate (injected by lock_page.js) ===== */
@@ -77,7 +90,7 @@ footer{text-align:center;padding:20px;color:var(--muted);font-size:11px;border-t
     <div id="vtLockFoot">VT Football &middot; Session unlocks automatically on other pages</div>
   </div>
 </div>
-<script id="vtLockPayload" type="application/json">{"salt":"XlQ3oQSObdCYGvQGqjeVmQ==","iv":"s4Tb51pf40D6BCWd","ct":"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","it":300000}</script>
+<script id="vtLockPayload" type="application/json">{"salt":"I/pNZ4gAQj+RAjF3CUT3Ig==","iv":"HzQUzVgo0P1aFY6N","ct":"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","it":300000}</script>
 <script>
 (function(){
   var PBKDF2_ITERATIONS = 300000;
