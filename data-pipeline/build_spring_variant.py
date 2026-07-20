@@ -30,6 +30,7 @@ def gain(r):
     except: return 0.0
 def is_sack(r): return r['pff_PASSRESULT'].strip()=='S'
 def is_comp(r): return r['pff_PASSRESULT'].strip()=='C'
+def is_drop(r): return r['pff_PASSRESULT'].strip()=='D'
 def is_eff(r): return r['Efficient'].strip()=='Y'
 def is_expl(r): return r['EXPLOSIVE'].strip()=='Y'
 # Overall "called run-scheme vs called pass-play" split
@@ -69,7 +70,7 @@ def stat_block_full(items):
     b['sacks']=sum(1 for r in items if is_sack(r)); b['ints']=0
     return b
 def pass_block(items):
-    b = stat_block(items); b['comp']=comp_pct(items); return b
+    b = stat_block(items); b['comp']=comp_pct(items); b['drops']=sum(1 for r in items if is_drop(r)); return b
 def route_block(items):
     b = pass_block(items); n=len(items)
     b['rt1']=pct(sum(1 for r in items if r['Route Thrown'].strip()=='1'),n)
@@ -308,8 +309,8 @@ for j in all_rb_j:
     rush_items=rb_rush_map.get(j, []); recv_items=rb_recv_map.get(j, [])
     if not rush_items and not recv_items: continue
     rush_b=stat_block(rush_items) if rush_items else {'n':0,'avg':0,'eff':0,'expl':0,'neg':0}
-    recv_b=pass_block(recv_items) if recv_items else {'n':0,'avg':0,'eff':0,'comp':0}
-    recv_b={'n':recv_b['n'],'avg':recv_b['avg'],'eff':recv_b['eff'],'expl':recv_b.get('expl',0),'neg':recv_b.get('neg',0),'comp':recv_b['comp']}
+    recv_b=pass_block(recv_items) if recv_items else {'n':0,'avg':0,'eff':0,'comp':0,'drops':0}
+    recv_b={'n':recv_b['n'],'avg':recv_b['avg'],'eff':recv_b['eff'],'expl':recv_b.get('expl',0),'neg':recv_b.get('neg',0),'comp':recv_b['comp'],'drops':recv_b.get('drops',0)}
     rbs.append({'name':name,'jersey':j,'rush':rush_b,'recv':recv_b})
 rbs.sort(key=lambda r:-r['rush']['n'])
 

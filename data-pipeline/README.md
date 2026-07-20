@@ -130,6 +130,25 @@ def comp_pct(items):
     return pct(sum(1 for r in targeted if is_comp(r)), len(targeted))
 ```
 
+### Drops
+`pff_PASSRESULT == 'D'` marks a drop -- charged to the intended receiver,
+not the QB. Counted (not just included in the targeted-attempts
+denominator) via `pass_block()`, which every per-player receiving stat
+block (QB `concepts`/pass totals, RB `recv`, WR/TE `receivers`) is built
+from -- so `drops` is always present alongside `comp` with zero extra
+wiring needed for future practice data:
+```python
+def is_drop(r): return r['pff_PASSRESULT'].strip()=='D'
+def pass_block(items):
+    b = stat_block(items); b['comp']=comp_pct(items)
+    b['drops']=sum(1 for r in items if is_drop(r))
+    return b
+```
+Rendered as a **DROPS** column in `self-scout.html`'s RB Receiving and
+WR/TE pass-target tables (`rbRecvTbody` / `recvTbody`). Not currently
+surfaced for QBs (they don't drop their own passes) even though the field
+exists on their stat block too -- harmless, just unused there.
+
 ### Run/pass sub-breakdown WITHIN a called run-scheme or WARP play
 This is about the **outcome**, not the call -- "did this called run actually
 end in a handoff, or did it get thrown (RPO/broken play)?"
