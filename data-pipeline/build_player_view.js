@@ -170,7 +170,6 @@ function curateDeepForPosition(deep, posKey) {
 
 function curateTeam(D, teamKey) {
   if (!D) return null;
-  const exploits = (D.exploits || []).map(e => e.text);
   const fastFacts = D.fastFacts || [];
   const sitRef = D.sitRef || [];
   const depthChart = D.depthChart || { secondary: [], dline: [] };
@@ -181,7 +180,7 @@ function curateTeam(D, teamKey) {
   const base = {
     meta: D.meta,
     weeklyNotes: D.weeklyNotes || '',
-    keys: { exploits, fastFacts },
+    keys: { fastFacts },
     sitRef,
     depthChart,
   };
@@ -211,6 +210,7 @@ function curateTeam(D, teamKey) {
   base.te = {
     ndCovDonut: D.ndCovDonut, cdCovDonut: D.cdCovDonut,
     ndFrontsDonut: D.ndFrontsDonut, cdFrontsDonut: D.cdFrontsDonut,
+    ndFormationChart: fc(D.ndFormationChart), cdFormationChart: fc(D.cdFormationChart),
     deep: curateDeepForPosition(deep, 'te'),
   };
 
