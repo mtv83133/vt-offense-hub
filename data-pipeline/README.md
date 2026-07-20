@@ -205,3 +205,35 @@ tag, don't guess -- add it to neither list and ask Matt.** Wrong guesses
 here are exactly what caused this whole debugging cycle.
 
 ### WARP total
+
+## Player View (derived from advance-scout.html, not self-scout)
+
+`player-view.html` is a separate, position-grouped scouting report shared
+with players -- a "Keys to the Game" tab plus QB / RB / WR / TE / OL tabs,
+each showing only the coverage/front/blitz/run-efficiency slices relevant
+to that group. It's locked with its own password (`OFFHOKIES2026`),
+different from the staff password, since it's distributed more broadly.
+
+`advance-scout.html`'s per-team consts (`VMI_DATA`, `ODU_DATA`,
+`MARYLAND_DATA`, ...) remain the single source of truth. **Never hand-edit
+player-view.html's data.** Whenever you update an opponent's data in
+advance-scout.html, regenerate player-view.html's data from it:
+
+```bash
+# 1. Update _source/advance-scout.html as usual, re-lock/deploy it.
+
+# 2. Re-derive player-view.html's curated data from the SAME plaintext master:
+node data-pipeline/build_player_view.js _source/advance-scout.html _source/player-view.html
+
+# 3. Re-lock and deploy player-view.html with ITS password:
+node security-tools/lock_page.js _source/player-view.html player-view.html OFFHOKIES2026
+```
+
+If a new opponent is added (a new `const <TEAM>_DATA` in advance-scout.html),
+add it to the `TEAMS` map at the top of `build_player_view.js` and re-run --
+no other changes needed, since the curation logic (which fields go to which
+position tab) is generic across teams.
+
+Distribute the direct link (`.../player-view.html`) to players, not the
+main hub (`index.html`) -- the hub itself is staff-password-locked, so
+players would hit that wall first if they started there.
