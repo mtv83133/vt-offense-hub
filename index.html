@@ -2,8 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>VT Football | Scouting Hub</title>
+
+<!-- Add to Home Screen support -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#3D0A1E">
+<link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VT Scouting">
+<link rel="icon" type="image/png" sizes="192x192" href="assets/icons/icon-192.png">
+
 <style>
 :root {
   --maroon: #861F41; --maroon-dark: #3D0A1E; --orange: #E5751F;
@@ -17,84 +28,110 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--navy);color:var(--
 .vt-logo{background:var(--orange);color:var(--maroon-dark);font-size:26px;font-weight:900;width:54px;height:54px;display:flex;align-items:center;justify-content:center;border-radius:10px;flex-shrink:0;border:2px solid rgba(255,255,255,0.2);}
 .hdr-title h1{font-size:20px;font-weight:800;letter-spacing:.5px;}
 .hdr-title p{font-size:11px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1.5px;margin-top:3px;}
-main{flex:1;max-width:1100px;margin:0 auto;padding:48px 24px;width:100%;}
-.intro{text-align:center;margin-bottom:40px;}
-.intro h2{font-size:22px;font-weight:800;margin-bottom:8px;}
-.intro p{color:var(--dim);font-size:13px;}
-.cards{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
-@media screen and (max-width:720px){.cards{grid-template-columns:1fr;}}
+main{flex:1;max-width:1100px;margin:0 auto;padding:48px 24px;width:100%;display:flex;align-items:center;justify-content:center;}
 @media screen and (max-width:520px){
   .hdr{padding:14px 16px;}
   .vt-logo{width:42px;height:42px;font-size:20px;}
   .hdr-title h1{font-size:15px;}
   .hdr-title p{font-size:9px;}
   main{padding:28px 16px;}
-  .card{padding:22px;}
-  .intro h2{font-size:18px;}
 }
-.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:32px;text-decoration:none;color:var(--text);display:block;transition:transform .15s, border-color .15s;border-top:4px solid var(--border);}
-.card:hover{transform:translateY(-3px);border-top-color:var(--orange);}
-.card-icon{font-size:34px;margin-bottom:14px;}
-.card h3{font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;}
-.card p{font-size:12px;color:var(--dim);line-height:1.7;margin-bottom:16px;}
-.card-meta{display:flex;gap:8px;flex-wrap:wrap;}
-.hp{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:4px 12px;font-size:10px;color:rgba(255,255,255,.65);}
-.card-cta{margin-top:18px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--orange);}
 footer{text-align:center;padding:20px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);}
 
-@media print{
-  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
-  body{background:#fff!important;color:#111!important;}
-  .hdr{background:#fff!important;border-bottom:2px solid var(--maroon)!important;box-shadow:none!important;}
-  .hdr-title h1{color:var(--maroon-dark)!important;}
-  .hdr-title p{color:#555!important;}
-  .card{background:#fff!important;border:1px solid #ccc!important;box-shadow:none!important;}
-  .card:hover{transform:none!important;}
-  .hp{background:none!important;border:1px solid #ccc!important;color:#333!important;}
-  .card-cta{color:var(--maroon)!important;}
-  footer{color:#777!important;}
-}
-</style>
-<style>
-/* ===== Password gate (injected by lock_page.js) ===== */
-#vtLockOverlay{position:fixed;inset:0;z-index:99999;background:linear-gradient(135deg,#3D0A1E 0%,#1B1B2F 100%);
-  display:flex;align-items:center;justify-content:center;padding:24px;}
-#vtLockBox{background:#242438;border:1px solid #3A3A58;border-radius:16px;padding:40px 32px;max-width:380px;width:100%;
-  box-shadow:0 12px 48px rgba(0,0,0,.6);text-align:center;}
-#vtLockBox .vt-lock-icon{background:#E5751F;color:#3D0A1E;font-size:24px;font-weight:900;width:52px;height:52px;
-  display:flex;align-items:center;justify-content:center;border-radius:10px;margin:0 auto 18px;}
-#vtLockBox h2{color:#fff;font-size:16px;font-weight:800;letter-spacing:.5px;margin-bottom:6px;
-  font-family:'Segoe UI',Arial,sans-serif;text-transform:uppercase;}
-#vtLockBox p{color:#AAA8C2;font-size:12px;margin-bottom:20px;font-family:'Segoe UI',Arial,sans-serif;}
-#vtLockInput{width:100%;background:#1B1B2F;border:1px solid #3A3A58;border-radius:8px;color:#fff;
-  padding:12px 14px;font-size:14px;margin-bottom:12px;font-family:'Segoe UI',Arial,sans-serif;}
-#vtLockInput:focus{outline:none;border-color:#E5751F;}
-#vtLockBtn{width:100%;background:#E5751F;color:#3D0A1E;border:none;border-radius:8px;padding:12px;
-  font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;cursor:pointer;
-  font-family:'Segoe UI',Arial,sans-serif;transition:filter .15s;}
-#vtLockBtn:hover{filter:brightness(1.1);}
-#vtLockBtn:active{filter:brightness(.95);}
-#vtLockErr{color:#ff8080;font-size:11px;margin-top:10px;min-height:14px;font-family:'Segoe UI',Arial,sans-serif;}
-#vtLockFoot{color:#666485;font-size:10px;margin-top:18px;font-family:'Segoe UI',Arial,sans-serif;}
+/* ── Gate box (password entry) ── */
+.gate-wrap{width:100%;max-width:380px;}
+.gate-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:40px 32px;text-align:center;box-shadow:0 12px 48px rgba(0,0,0,.6);}
+.gate-icon{background:var(--orange);color:var(--maroon-dark);font-size:24px;font-weight:900;width:52px;height:52px;display:flex;align-items:center;justify-content:center;border-radius:10px;margin:0 auto 18px;}
+.gate-box h2{font-size:16px;font-weight:800;letter-spacing:.5px;margin-bottom:6px;text-transform:uppercase;}
+.gate-box p{color:var(--dim);font-size:12px;margin-bottom:20px;}
+.gate-input{width:100%;background:var(--navy);border:1px solid var(--border);border-radius:8px;color:#fff;padding:12px 14px;font-size:14px;margin-bottom:12px;font-family:inherit;}
+.gate-input:focus{outline:none;border-color:var(--orange);}
+.gate-btn{width:100%;background:var(--orange);color:var(--maroon-dark);border:none;border-radius:8px;padding:12px;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:1px;cursor:pointer;transition:filter .15s;}
+.gate-btn:hover{filter:brightness(1.1);}
+.gate-btn:active{filter:brightness(.95);}
+.gate-btn:disabled{opacity:.6;cursor:default;}
+.gate-err{color:#ff8080;font-size:11px;margin-top:10px;min-height:14px;}
+.gate-foot{color:var(--muted);font-size:10px;margin-top:18px;}
+
+/* ── Staff chooser (shown after staff password matches) ── */
+.chooser{width:100%;max-width:640px;}
+.chooser-intro{text-align:center;margin-bottom:28px;}
+.chooser-intro h2{font-size:20px;font-weight:800;margin-bottom:6px;}
+.chooser-intro p{color:var(--dim);font-size:12px;}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+@media screen and (max-width:560px){.cards{grid-template-columns:1fr;}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:28px;text-decoration:none;color:var(--text);display:block;transition:transform .15s, border-color .15s;border-top:4px solid var(--border);}
+.card:hover{transform:translateY(-3px);border-top-color:var(--orange);}
+.card-icon{font-size:30px;margin-bottom:12px;}
+.card h3{font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;}
+.card p{font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:14px;}
+.card-cta{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--orange);}
+
+.hidden{display:none !important;}
 </style>
 </head>
 <body>
-<div id="vtLockOverlay">
-  <div id="vtLockBox">
-    <div class="vt-lock-icon">VT</div>
-    <h2>Protected Report</h2>
-    <p>Internal use only. Enter the password to continue.</p>
-    <input id="vtLockInput" type="password" placeholder="Password" autocomplete="off" autofocus>
-    <button id="vtLockBtn" type="button">Unlock</button>
-    <div id="vtLockErr"></div>
-    <div id="vtLockFoot">VT Football &middot; Session unlocks automatically on other pages</div>
+
+<header class="hdr">
+  <div class="hdr-inner">
+    <div class="vt-logo">VT</div>
+    <div class="hdr-title">
+      <h1>VT FOOTBALL SCOUTING HUB</h1>
+      <p>Internal Use Only</p>
+    </div>
   </div>
-</div>
-<script id="vtLockPayload" type="application/json">{"salt":"kgxnwrf0B+/A2C9a//WhLQ==","iv":"h70SQ8iblJPvX2Pu","ct":"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","it":300000}</script>
+</header>
+
+<main>
+
+  <!-- Password gate -->
+  <div class="gate-wrap" id="gateWrap">
+    <div class="gate-box">
+      <div class="gate-icon">VT</div>
+      <h2>Scouting Hub</h2>
+      <p>Internal use only. Enter your password to continue.</p>
+      <input id="gateInput" type="password" class="gate-input" placeholder="Password" autocomplete="off" autofocus>
+      <button id="gateBtn" type="button" class="gate-btn">Continue</button>
+      <div id="gateErr" class="gate-err"></div>
+      <div class="gate-foot">VT Football &middot; Internal Use Only</div>
+    </div>
+  </div>
+
+  <!-- Staff chooser (hidden until the staff password is confirmed) -->
+  <div class="chooser hidden" id="chooserWrap">
+    <div class="chooser-intro">
+      <h2>Pick a dashboard</h2>
+      <p>Updated after every practice and for every opponent.</p>
+    </div>
+    <div class="cards">
+      <a class="card" href="self-scout.html" style="border-top-color:var(--orange);">
+        <div class="card-icon">🏈</div>
+        <h3>Self Scout</h3>
+        <p>Our offensive tendencies — formations, personnel, lineup combos, run/pass efficiency by period and practice.</p>
+        <div class="card-cta">Open Dashboard →</div>
+      </a>
+      <a class="card" href="advance-scout.html" style="border-top-color:var(--maroon);">
+        <div class="card-icon">🛡️</div>
+        <h3>Advance Scout</h3>
+        <p>Opponent defensive tendencies — fronts, coverage, blitz, red zone & goal line.</p>
+        <div class="card-cta">Open Dashboard →</div>
+      </a>
+    </div>
+  </div>
+
+</main>
+
+<footer>VT Football &nbsp;·&nbsp; Internal Use Only</footer>
+
+<!-- Canary payloads: tiny known-plaintext blobs encrypted with each real password (NOT the
+     real page content). Used only to figure out which password was typed so we can route to
+     the right destination and pre-seed sessionStorage so that page auto-unlocks. -->
+<script id="staffCanary" type="application/json">{"salt":"Zmufe0lGDCiaW71ZK+nrIQ==","iv":"5/jwMu6T8aIuz7R6","ct":"COghwEX595Ul0KIG/sm3h7CHMjfIuUJT","it":300000}</script>
+<script id="playerCanary" type="application/json">{"salt":"cNQ/hHr/lubTG1h+aH1ceg==","iv":"I3XY3KT/qahSPtYG","ct":"esbnn3KHkpVo4YFbYKnjx4M2QtWWraq8Ww==","it":300000}</script>
+
 <script>
 (function(){
-  var PBKDF2_ITERATIONS = 300000;
-  var SS_KEY = 'vt_scout_pw_v1';
+  var SS_KEY = 'vt_scout_pw_v1'; // same key lock_page.js's overlay reads on self-scout/advance-scout/player-view
 
   function b64ToBytes(str) {
     var bin = atob(str);
@@ -102,82 +139,70 @@ footer{text-align:center;padding:20px;color:var(--muted);font-size:11px;border-t
     for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return bytes;
   }
-
-  function deriveKey(password, saltBytes) {
+  function deriveKey(password, saltBytes, iterations) {
     var enc = new TextEncoder();
     return crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey'])
       .then(function(baseKey){
         return crypto.subtle.deriveKey(
-          { name: 'PBKDF2', salt: saltBytes, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
-          baseKey,
-          { name: 'AES-GCM', length: 256 },
-          false,
-          ['decrypt']
+          { name: 'PBKDF2', salt: saltBytes, iterations: iterations, hash: 'SHA-256' },
+          baseKey, { name: 'AES-GCM', length: 256 }, false, ['decrypt']
         );
       });
   }
-
-  function decryptPayload(password) {
-    var payload = JSON.parse(document.getElementById('vtLockPayload').textContent);
-    var salt = b64ToBytes(payload.salt);
-    var iv = b64ToBytes(payload.iv);
-    var ct = b64ToBytes(payload.ct);
-    return deriveKey(password, salt).then(function(key){
+  function tryCanary(elId, password, expected) {
+    var payload = JSON.parse(document.getElementById(elId).textContent);
+    var salt = b64ToBytes(payload.salt), iv = b64ToBytes(payload.iv), ct = b64ToBytes(payload.ct);
+    return deriveKey(password, salt, payload.it).then(function(key){
       return crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ct);
-    }).then(function(plainBuf){
-      return new TextDecoder().decode(plainBuf);
-    });
+    }).then(function(buf){
+      return new TextDecoder().decode(buf) === expected;
+    }).catch(function(){ return false; });
   }
 
-  function reveal(html) {
-    document.body.innerHTML = html;
-    var scripts = Array.prototype.slice.call(document.body.querySelectorAll('script'));
-    scripts.forEach(function(oldScript){
-      var newScript = document.createElement('script');
-      for (var i = 0; i < oldScript.attributes.length; i++) {
-        var attr = oldScript.attributes[i];
-        newScript.setAttribute(attr.name, attr.value);
-      }
-      newScript.textContent = oldScript.textContent;
-      oldScript.parentNode.replaceChild(newScript, oldScript);
-    });
+  function showChooser() {
+    document.getElementById('gateWrap').classList.add('hidden');
+    document.getElementById('chooserWrap').classList.remove('hidden');
   }
 
-  function attemptUnlock(password, opts) {
+  function attempt(password, opts) {
     opts = opts || {};
-    return decryptPayload(password).then(function(html){
-      try { sessionStorage.setItem(SS_KEY, password); } catch(e) {}
-      reveal(html);
-      return true;
-    }).catch(function(){
-      if (!opts.silent) {
-        var err = document.getElementById('vtLockErr');
-        if (err) err.textContent = 'Incorrect password. Try again.';
-        var input = document.getElementById('vtLockInput');
-        if (input) { input.value = ''; input.focus(); }
+    var btn = document.getElementById('gateBtn');
+    var err = document.getElementById('gateErr');
+    if (btn) btn.disabled = true;
+    return tryCanary('staffCanary', password, 'STAFF_OK').then(function(isStaff){
+      if (isStaff) {
+        try { sessionStorage.setItem(SS_KEY, password); } catch(e) {}
+        showChooser();
+        return true;
       }
-      return false;
-    });
+      return tryCanary('playerCanary', password, 'PLAYER_OK').then(function(isPlayer){
+        if (isPlayer) {
+          try { sessionStorage.setItem(SS_KEY, password); } catch(e) {}
+          window.location.href = 'player-view.html';
+          return true;
+        }
+        if (!opts.silent) {
+          if (err) err.textContent = 'Incorrect password. Try again.';
+          var input = document.getElementById('gateInput');
+          if (input) { input.value = ''; input.focus(); }
+        }
+        return false;
+      });
+    }).finally(function(){ if (btn) btn.disabled = false; });
   }
 
-  function wireUpUI() {
-    var btn = document.getElementById('vtLockBtn');
-    var input = document.getElementById('vtLockInput');
-    if (btn) btn.addEventListener('click', function(){ attemptUnlock(input.value); });
-    if (input) input.addEventListener('keydown', function(e){
-      if (e.key === 'Enter') attemptUnlock(input.value);
-    });
-  }
+  var btn = document.getElementById('gateBtn');
+  var input = document.getElementById('gateInput');
+  if (btn) btn.addEventListener('click', function(){ attempt(input.value); });
+  if (input) input.addEventListener('keydown', function(e){ if (e.key === 'Enter') attempt(input.value); });
 
+  // If a password from a previous unlock this session is already stored, skip straight past
+  // the prompt (mirrors the auto-unlock behavior on the other 3 pages).
   var stored = null;
   try { stored = sessionStorage.getItem(SS_KEY); } catch(e) {}
-  if (stored) {
-    attemptUnlock(stored, { silent: true }).then(function(ok){
-      if (!ok) wireUpUI();
-    });
-  } else {
-    wireUpUI();
-  }
+  if (stored) attempt(stored, { silent: true });
 })();
 </script>
-</body></html>
+
+</body>
+</html>
