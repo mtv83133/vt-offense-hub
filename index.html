@@ -97,37 +97,22 @@ footer{text-align:center;padding:20px;color:var(--muted);font-size:11px;border-t
     </div>
   </div>
 
-  <!-- Staff chooser (hidden until the staff password is confirmed) -->
-  <div class="chooser hidden" id="chooserWrap">
-    <div class="chooser-intro">
-      <h2>Pick a dashboard</h2>
-      <p>Updated after every practice and for every opponent.</p>
-    </div>
-    <div class="cards">
-      <a class="card" href="self-scout.html" style="border-top-color:var(--orange);">
-        <div class="card-icon">🏈</div>
-        <h3>Self Scout</h3>
-        <p>Our offensive tendencies — formations, personnel, lineup combos, run/pass efficiency by period and practice.</p>
-        <div class="card-cta">Open Dashboard →</div>
-      </a>
-      <a class="card" href="advance-scout.html" style="border-top-color:var(--maroon);">
-        <div class="card-icon">🛡️</div>
-        <h3>Advance Scout</h3>
-        <p>Opponent defensive tendencies — fronts, coverage, blitz, red zone & goal line.</p>
-        <div class="card-cta">Open Dashboard →</div>
-      </a>
-    </div>
-  </div>
+  <!-- Staff chooser: intentionally EMPTY in the served HTML. Built dynamically via JS
+       only after the staff password is confirmed, so no dashboard names/links are ever
+       present in page source pre-auth (view-source stays blank, matching the old fully
+       encrypted hub's guarantee). -->
+  <div class="chooser hidden" id="chooserWrap"></div>
 
 </main>
 
 <footer>VT Football &nbsp;·&nbsp; Internal Use Only</footer>
 
-<!-- Canary payloads: tiny known-plaintext blobs encrypted with each real password (NOT the
-     real page content). Used only to figure out which password was typed so we can route to
-     the right destination and pre-seed sessionStorage so that page auto-unlocks. -->
-<script id="staffCanary" type="application/json">{"salt":"Zmufe0lGDCiaW71ZK+nrIQ==","iv":"5/jwMu6T8aIuz7R6","ct":"COghwEX595Ul0KIG/sm3h7CHMjfIuUJT","it":300000}</script>
-<script id="playerCanary" type="application/json">{"salt":"cNQ/hHr/lubTG1h+aH1ceg==","iv":"I3XY3KT/qahSPtYG","ct":"esbnn3KHkpVo4YFbYKnjx4M2QtWWraq8Ww==","it":300000}</script>
+<!-- Encrypted payloads: the staff payload's plaintext IS the chooser HTML (dashboard names
+     and links), so nothing about page names/links exists anywhere in this file until the
+     staff password successfully decrypts it. The player payload is a tiny known-plaintext
+     blob (not real content) used only to confirm the player password before redirecting. -->
+<script id="staffPayload" type="application/json">{"salt":"DVKlitYyZ2a6N8LQGscjTQ==","iv":"lBjAny7x/rRgGlpj","ct":"O0eASt60utDNUKcRgVG6EO8QauHLxC/gPnfRIB8Uxq9T6jRzCeLmhI+aG51EfdBWPZgGvDOyMQyENR1BosUktmXXWxWIay+snxD4o9b3MsQ+TH/GrKptv/EdzKHhsIxWFc2lExSTyKb7/1wdeL6ZrTMmgxmUL/tVJCfAdoli1xNNBRI6J2MMpJMZOyQxNiKqsBTDQXtfo5c0cKWlySPXvSO5wl8tCOnQ+8CyAIYfuN5AkIWyNLOJtGfpdfqIFcVw/75oHjz6JI136XV5cfnj4M/2WfG0mc9fay4/lv9TVUTA1vDJZVHY+u0sAdmOI6pkcxnEdOwpArodhyRqEyBvi3kc9YhyNZWVhHSJh6Nr0b8vTnHVPL4p9TF4/CeZYJyxz5OhnAAIchhpng/zNq1Gj8XesLyyj9jygXqFvpphMaUrUlUVGUqVojxNqAoJmMVdy5C9EkDce9cqJWsQ45jFSvD9fEFgmPoh/rt4PZoPcbTSPoL9xvNbsRB2EN85khnv2nS/ERH7ppEogQs7jmF5gITfkElsOeoC1V8/25jnGslYfRgUfydyvV9IMaQwpsMwK41hunOWeMcHTnRKLxLbCXsnMNMtG2nNTO4Lq8iF9/qghc7aep3n3Vi92LiBgoOKqrX3PNE/bC6ljY3iyGC6yQAUQcTfNFLLntJpdtPf14vY+UR5FaTHLP7YfPzcrjoDDy2HmCPHLy55tpAevOqPZGyuO+arWmtWbrwWu1PNAhwh7xLNHPU1hwVJpdrBEJrDnnxxFH5guJebXmMetasuXD/bRLPN1ZQG/hbUfK9Z/HHXwe2RFFs9j+QV++CWI6KwSYOwpJYUDgL8HpM7uf16ERsjVWNeg/mu8PQkclbpxmeRp1omdQ2tZs5+uuPD2i7QQoVU48qG7+E/iDBnWSpw5eVDgDnHW0IHsJrBRNRt5N0TiOJ/7rLJucGwbg+OulXuBOK8txIU6p28idm5HA==","it":300000}</script>
+<script id="playerPayload" type="application/json">{"salt":"OrShVGZxFBvr5ppAIaaMjw==","iv":"HPwqYKua9nAC09F7","ct":"pNNzqGFhLfS91SdGxmPLcTB98WW8xKFJAw==","it":300000}</script>
 
 <script>
 (function(){
@@ -149,19 +134,21 @@ footer{text-align:center;padding:20px;color:var(--muted);font-size:11px;border-t
         );
       });
   }
-  function tryCanary(elId, password, expected) {
+  function tryDecrypt(elId, password) {
     var payload = JSON.parse(document.getElementById(elId).textContent);
     var salt = b64ToBytes(payload.salt), iv = b64ToBytes(payload.iv), ct = b64ToBytes(payload.ct);
     return deriveKey(password, salt, payload.it).then(function(key){
       return crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, ct);
     }).then(function(buf){
-      return new TextDecoder().decode(buf) === expected;
-    }).catch(function(){ return false; });
+      return new TextDecoder().decode(buf);
+    }).catch(function(){ return null; });
   }
 
-  function showChooser() {
+  function showChooser(html) {
+    var wrap = document.getElementById('chooserWrap');
+    if (!wrap.childElementCount) wrap.innerHTML = html; // build once from decrypted plaintext
     document.getElementById('gateWrap').classList.add('hidden');
-    document.getElementById('chooserWrap').classList.remove('hidden');
+    wrap.classList.remove('hidden');
   }
 
   function attempt(password, opts) {
@@ -169,14 +156,14 @@ footer{text-align:center;padding:20px;color:var(--muted);font-size:11px;border-t
     var btn = document.getElementById('gateBtn');
     var err = document.getElementById('gateErr');
     if (btn) btn.disabled = true;
-    return tryCanary('staffCanary', password, 'STAFF_OK').then(function(isStaff){
-      if (isStaff) {
+    return tryDecrypt('staffPayload', password).then(function(chooserHtml){
+      if (chooserHtml !== null) {
         try { sessionStorage.setItem(SS_KEY, password); } catch(e) {}
-        showChooser();
+        showChooser(chooserHtml);
         return true;
       }
-      return tryCanary('playerCanary', password, 'PLAYER_OK').then(function(isPlayer){
-        if (isPlayer) {
+      return tryDecrypt('playerPayload', password).then(function(playerCheck){
+        if (playerCheck === 'PLAYER_OK') {
           try { sessionStorage.setItem(SS_KEY, password); } catch(e) {}
           window.location.href = 'player-view.html';
           return true;
