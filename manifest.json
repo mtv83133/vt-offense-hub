@@ -1,6 +1,6 @@
 {
-  "name": "VT Football Scouting Hub",
-  "short_name": "VT Scouting",
+  "name": "VT Offense Scouting Hub",
+  "short_name": "VT Offense",
   "description": "VT Football self-scout, advance-scout, and player scouting reports.",
   "start_url": "index.html",
   "scope": ".",
