@@ -44,37 +44,48 @@ async function main() {
   assert(!!navBtn, 'Sidebar has a Bible nav item');
 
   const secBible = window.document.getElementById('sec-bible');
-  assert(!!secBible, 'sec-bible element exists');
   const bodyBible = window.document.getElementById('sec-bible-body');
+  assert(!!secBible, 'sec-bible element exists');
   assert(!!bodyBible, 'sec-bible-body element exists');
 
-  // show('bible') should toggle visibility without throwing
   window.show('bible');
   await wait(50);
   assert(secBible.classList.contains('on'), "show('bible') marks sec-bible as active");
 
-  // Default (Maryland) content should have real Base/Nickel data, not the empty-state callout
-  assert(bodyBible.innerHTML.includes('Base Personnel'), 'MARYLAND (default) Bible body includes Base Personnel card');
-  assert(bodyBible.innerHTML.includes('Nickel Personnel'), 'MARYLAND (default) Bible body includes Nickel Personnel card');
-  assert(!bodyBible.innerHTML.includes('No defensive personnel data tagged'), 'MARYLAND (default) Bible body is NOT the empty state');
+  // MARYLAND (default): full cross-tab set, all sections present, real ND-play counts
+  assert(bodyBible.innerHTML.includes('Normal Downs Bible'), 'MARYLAND Bible header shows "Normal Downs Bible"');
+  assert(bodyBible.innerHTML.includes('Overall Coverage'), 'MARYLAND: Overall Coverage card present');
+  assert(bodyBible.innerHTML.includes('Coverage by Off Personnel'), 'MARYLAND: Coverage by Off Personnel card present');
+  assert(bodyBible.innerHTML.includes('Fronts by Off Personnel'), 'MARYLAND: Fronts by Off Personnel card present');
+  assert(bodyBible.innerHTML.includes('Coverage by Big Bucket Defensive Personnel'), 'MARYLAND: Big Bucket (Base/Nickel) card present');
+  assert(bodyBible.innerHTML.includes('O Personnel vs D Personnel'), 'MARYLAND: O Pers vs D Pers card present (has pff_DEFPERSONNEL)');
+  assert(bodyBible.innerHTML.includes('Coverage by Def Personnel'), 'MARYLAND: Coverage by Def Personnel card present');
+  assert(bodyBible.innerHTML.includes('Coverage by Pers by Front'), 'MARYLAND: Coverage by Pers by Front card present');
+  assert(bodyBible.innerHTML.includes('Coverage to Form Family'), 'MARYLAND: Coverage to Form Family card present');
+  assert(bodyBible.innerHTML.includes('bib-notes'), 'MARYLAND: editable notes textarea present');
+  assert(!bodyBible.innerHTML.includes('No Normal Downs data available'), 'MARYLAND is NOT the empty state');
 
-  // ODU: has real (if thin) Base/Nickel data
+  // ODU: has pff_DEFPERSONNEL too -> same full section set
   window.selectTeam('ODU');
   await wait(80);
-  assert(bodyBible.innerHTML.includes('Base Personnel'), 'ODU Bible body includes Base Personnel card');
-  assert(bodyBible.innerHTML.includes('Nickel Personnel'), 'ODU Bible body includes Nickel Personnel card');
-  assert(!bodyBible.innerHTML.includes('No defensive personnel data tagged'), 'ODU Bible body is NOT the empty state');
+  assert(bodyBible.innerHTML.includes('O Personnel vs D Personnel'), 'ODU: O Pers vs D Pers card present');
+  assert(bodyBible.innerHTML.includes('Coverage by Big Bucket Defensive Personnel'), 'ODU: Big Bucket (Base/Nickel) card present');
+  assert(!bodyBible.innerHTML.includes('No Normal Downs data available'), 'ODU is NOT the empty state');
 
-  // VMI: no pff_DEFPERSONNEL data at all -> should show the empty state, not a blank/broken table
+  // VMI: no pff_DEFPERSONNEL -> D-personnel-dependent cards must be OMITTED (not blank/broken),
+  // but the rest of the cross-tab (which doesn't need D personnel) should still render.
   window.selectTeam('VMI');
   await wait(80);
-  assert(bodyBible.innerHTML.includes('No defensive personnel data tagged'), 'VMI Bible body correctly shows the empty state (no source data)');
-  assert(!bodyBible.innerHTML.includes('Base Personnel'), 'VMI Bible body does NOT render a Base Personnel card');
+  assert(bodyBible.innerHTML.includes('Overall Coverage'), 'VMI: Overall Coverage still renders (no D-personnel dependency)');
+  assert(bodyBible.innerHTML.includes('Coverage by Off Personnel'), 'VMI: Coverage by Off Personnel still renders');
+  assert(!bodyBible.innerHTML.includes('O Personnel vs D Personnel'), 'VMI: O Pers vs D Pers card correctly omitted (no source data)');
+  assert(!bodyBible.innerHTML.includes('Coverage by Big Bucket Defensive Personnel'), 'VMI: Big Bucket card correctly omitted (no source data)');
+  assert(!bodyBible.innerHTML.includes('Coverage by Def Personnel'), 'VMI: Coverage by Def Personnel card correctly omitted');
 
-  // Switching back to MARYLAND restores its own Bible content (not stuck on VMI's empty state)
+  // Switching back to MARYLAND restores its own full content
   window.selectTeam('MARYLAND');
   await wait(80);
-  assert(bodyBible.innerHTML.includes('Base Personnel'), 'MARYLAND Bible body restores after switching away and back');
+  assert(bodyBible.innerHTML.includes('O Personnel vs D Personnel'), 'MARYLAND Bible body restores after switching away and back');
 
   for (const r of results) console.log((r.ok ? 'PASS' : 'FAIL') + ' - ' + r.msg);
   const fails = results.filter(r => !r.ok);

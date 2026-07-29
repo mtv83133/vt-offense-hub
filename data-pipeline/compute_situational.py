@@ -425,30 +425,146 @@ def defpers_bucket(row):
         return None
     return 'NICKEL' if db >= 5 else 'BASE'
 
-def compute_defpers_splits(rows):
-    """Base vs Nickel personnel breakdown (Fronts/Coverage/Blitz rate), used by the
-    'Bible' tab. Returns None if this opponent's CSV has no usable pff_DEFPERSONNEL data."""
+def compute_bible(rows):
+    """Normal-Downs coverage cross-tab reference ('Bible' tab), matching the staff's
+    own 'NDD Bible' cheat-sheet format: coverage broken out against offensive personnel,
+    fronts, defensive personnel, formation, FIB, WARP tempo, and Base/Nickel. rows should
+    already be the Normal Downs bucket (down 1-2, non-2min/4min). Returns None if empty."""
+    total = len(rows)
+    if total == 0:
+        return None
+
+    def cov_breakdown(sub):
+        c = Counter(upper(r.get('CoverFamily')) for r in sub)
+        return topN_pct(c, len(sub), n=15)
+
+    def front_breakdown(sub):
+        c = Counter(upper(r.get('Front Family')) for r in sub)
+        return topN_pct(c, len(sub), n=15)
+
+    def off_pers_of(r):
+        return (r.get('PERS(O)') or '').strip().upper()
+
+    pers_groups = defaultdict(list)
+    for r in rows:
+        p = off_pers_of(r)
+        if p:
+            pers_groups[p].append(r)
+    pers_sorted = sorted(pers_groups.items(), key=lambda kv: -len(kv[1]))
+
+    # ---- 1. Overall Coverage ----
+    overall_coverage = cov_breakdown(rows)
+
+    # ---- 2. Coverage by Off Pers ----
+    coverage_by_off_pers = [{
+        "pers": pers, "n": len(grp), "pct": round(len(grp)/total*100),
+        "coverage": cov_breakdown(grp),
+    } for pers, grp in pers_sorted]
+
+    # ---- 3. Front by Off Pers ----
+    front_by_off_pers = [{
+        "pers": pers, "n": len(grp), "pct": round(len(grp)/total*100),
+        "fronts": front_breakdown(grp),
+    } for pers, grp in pers_sorted]
+
+    # ---- 4. Coverage to FIB ----
+    fib_rows = [r for r in rows if upper(r.get('FIB')) == 'YES']
+    coverage_to_fib = cov_breakdown(fib_rows) if fib_rows else []
+
+    # ---- 5. Coverage to Tempo (WARP = pff_TEMPO == '1') ----
+    warp_rows = [r for r in rows if (r.get('pff_TEMPO') or '').strip() == '1']
+    warp_pers_groups = defaultdict(list)
+    for r in warp_rows:
+        p = off_pers_of(r)
+        if p:
+            warp_pers_groups[p].append(r)
+    coverage_to_tempo = [{
+        "pers": pers, "n": len(grp), "coverage": cov_breakdown(grp),
+    } for pers, grp in sorted(warp_pers_groups.items(), key=lambda kv: -len(kv[1]))]
+
+    # ---- 6. Coverage by Big Bucket Defensive Pers (Base/Nickel) ----
     base_rows = [r for r in rows if defpers_bucket(r) == 'BASE']
     nickel_rows = [r for r in rows if defpers_bucket(r) == 'NICKEL']
-    tagged_n = len(base_rows) + len(nickel_rows)
-    if tagged_n == 0:
-        return None
-    def bucket_stats(sub):
-        n = len(sub)
-        front_c = Counter(upper(r.get('Front')) for r in sub)
-        cov_c = Counter(upper(r.get('Coverage')) for r in sub)
-        blitz_n = sum(1 for r in sub if is_blitz(r))
-        return {
-            "n": n, "pctOfTagged": round(n/tagged_n*100) if tagged_n else 0,
-            "fronts": topN_pct(front_c, n, n=6),
-            "coverage": topN_pct(cov_c, n, n=6),
-            "blitzCount": blitz_n,
-            "blitzPct": round(blitz_n/n*100) if n else 0,
+    bucket_total = len(base_rows) + len(nickel_rows)
+    coverage_by_bucket = None
+    if bucket_total:
+        coverage_by_bucket = {
+            "total": bucket_total,
+            "nickel": {"n": len(nickel_rows), "pct": round(len(nickel_rows)/bucket_total*100) if bucket_total else 0,
+                       "coverage": cov_breakdown(nickel_rows)},
+            "base": {"n": len(base_rows), "pct": round(len(base_rows)/bucket_total*100) if bucket_total else 0,
+                     "coverage": cov_breakdown(base_rows)},
         }
+
+    # ---- 7 & 8. O Pers vs D Pers / Coverage by Def Pers (raw pff_DEFPERSONNEL string) ----
+    defpers_present = [r for r in rows if (r.get('pff_DEFPERSONNEL') or '').strip()]
+    o_vs_d = None
+    coverage_by_def_pers = None
+    if defpers_present:
+        o_vs_d = []
+        for pers, grp in pers_sorted:
+            dgrp = defaultdict(list)
+            for r in grp:
+                dp = (r.get('pff_DEFPERSONNEL') or '').strip()
+                if dp:
+                    dgrp[dp].append(r)
+            if not dgrp:
+                continue
+            dn = sum(len(v) for v in dgrp.values())
+            entries = [{"label": dp, "count": len(v), "pct": round(len(v)/dn*100)}
+                       for dp, v in sorted(dgrp.items(), key=lambda kv: -len(kv[1]))]
+            o_vs_d.append({"pers": pers, "n": dn, "defpers": entries})
+
+        dpers_groups = defaultdict(list)
+        for r in defpers_present:
+            dpers_groups[(r.get('pff_DEFPERSONNEL') or '').strip()].append(r)
+        dtotal = len(defpers_present)
+        coverage_by_def_pers = [{
+            "defpers": dp, "n": len(grp), "pct": round(len(grp)/dtotal*100),
+            "coverage": cov_breakdown(grp),
+        } for dp, grp in sorted(dpers_groups.items(), key=lambda kv: -len(kv[1]))]
+
+    # ---- 9. Coverage by Pers by Front (PERS(O) -> Front Family -> Cov Fam) ----
+    coverage_by_pers_by_front = []
+    for pers, grp in pers_sorted:
+        fgroups = defaultdict(list)
+        for r in grp:
+            f = upper(r.get('Front Family'))
+            if f:
+                fgroups[f].append(r)
+        if not fgroups:
+            continue
+        fn = sum(len(v) for v in fgroups.values())
+        fronts = [{
+            "front": f, "n": len(fg), "pct": round(len(fg)/fn*100),
+            "coverage": cov_breakdown(fg),
+        } for f, fg in sorted(fgroups.items(), key=lambda kv: -len(kv[1]))]
+        coverage_by_pers_by_front.append({"pers": pers, "n": fn, "fronts": fronts})
+
+    # ---- 10. Coverage to Form Family (FinalForm) ----
+    form_groups = defaultdict(list)
+    for r in rows:
+        f = upper(r.get('FinalForm'))
+        if f:
+            form_groups[f].append(r)
+    form_total = sum(len(v) for v in form_groups.values())
+    coverage_to_form_family = [{
+        "form": f, "n": len(grp), "pct": round(len(grp)/form_total*100) if form_total else 0,
+        "coverage": cov_breakdown(grp),
+    } for f, grp in sorted(form_groups.items(), key=lambda kv: -len(kv[1]))]
+
     return {
-        "taggedTotal": tagged_n,
-        "base": bucket_stats(base_rows),
-        "nickel": bucket_stats(nickel_rows),
+        "n": total,
+        "overallCoverage": overall_coverage,
+        "coverageByOffPers": coverage_by_off_pers,
+        "frontByOffPers": front_by_off_pers,
+        "coverageToFib": coverage_to_fib, "fibN": len(fib_rows),
+        "coverageToTempo": coverage_to_tempo, "warpN": len(warp_rows),
+        "coverageByBucket": coverage_by_bucket,
+        "oVsD": o_vs_d,
+        "coverageByDefPers": coverage_by_def_pers,
+        "coverageByPersByFront": coverage_by_pers_by_front,
+        "coverageToFormFamily": coverage_to_form_family,
     }
 
 ND_SPLIT_DEFS = [
@@ -490,7 +606,7 @@ def main():
         "ndSplits": compute_down_splits(nd_rows, ND_SPLIT_DEFS),
         "cdSplits": compute_down_splits(cd_rows, CD_SPLIT_DEFS),
         "secondaryBreakpoint": find_secondary_breakpoint(rows),
-        "bible": compute_defpers_splits(rows),
+        "bible": compute_bible(nd_rows),
     }
     print(json.dumps(result, indent=2))
 

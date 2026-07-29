@@ -520,31 +520,97 @@ def build_coverage_panel_with_splits(bucket, label, id_prefix, canvas_prefix, sp
         </div>
       </div>'''
 
+def bible_leaf_html(entries):
+    """Innermost Cov-Fam/Front-Fam leaf rows: [{label,count,pct}] -> compact list."""
+    if not entries:
+        return '<div class="bib-empty">No data</div>'
+    return "".join(
+        f'<div class="bib-row bib-leaf"><span class="bib-lbl">{esc(e["label"])}</span>'
+        f'<span class="bib-n">{e["count"]}x</span><span class="bib-pct">{e["pct"]}%</span></div>'
+        for e in entries
+    )
+
+def bible_group_html(groups, label_key, inner_key):
+    """One level of nesting: each group has [label_key], 'n', optional 'pct', and a leaf
+    list at [inner_key]. Renders a bold header row per group + its indented leaf rows."""
+    if not groups:
+        return '<div class="bib-empty">No data</div>'
+    out = []
+    for g in groups:
+        pct_str = f'{g["pct"]}%' if g.get("pct") is not None else ""
+        out.append(
+            f'<div class="bib-grp"><div class="bib-row bib-hdr">'
+            f'<span class="bib-lbl">{esc(str(g[label_key]))}</span>'
+            f'<span class="bib-n">{g["n"]}x</span><span class="bib-pct">{pct_str}</span></div>'
+        )
+        out.append(bible_leaf_html(g[inner_key]))
+        out.append('</div>')
+    return "".join(out)
+
+def bible_pers_by_front_html(groups):
+    """Triple nest: PERS(O) -> Front Family -> Cov Fam."""
+    if not groups:
+        return '<div class="bib-empty">No data</div>'
+    out = []
+    for g in groups:
+        out.append(
+            f'<div class="bib-grp"><div class="bib-row bib-hdr">'
+            f'<span class="bib-lbl">{esc(g["pers"])}</span><span class="bib-n">{g["n"]}x</span></div>'
+        )
+        for f in g["fronts"]:
+            out.append(
+                f'<div class="bib-row bib-sub"><span class="bib-lbl">{esc(f["front"])}</span>'
+                f'<span class="bib-n">{f["n"]}x</span><span class="bib-pct">{f["pct"]}%</span></div>'
+            )
+            out.append(bible_leaf_html(f["coverage"]))
+        out.append('</div>')
+    return "".join(out)
+
+def bible_card(title, body_html, span=False):
+    span_attr = ' style="grid-column:1/-1"' if span else ""
+    return f'<div class="card bib-card"{span_attr}><div class="card-hd">{esc(title)}</div><div class="bib-body">{body_html}</div></div>'
+
 def build_bible_section(bible):
-    """'Bible' tab: Base vs Nickel defensive personnel breakdown (fronts, coverage,
-    blitz rate). bible = compute_situational.py's compute_defpers_splits() output,
-    or None if this opponent's CSV has no usable pff_DEFPERSONNEL data."""
+    """'Bible' tab: Normal-Downs coverage cross-tab reference (matches the staff's own
+    NDD Bible cheat sheet). bible = compute_situational.py's compute_bible() output,
+    or None if there are no Normal Downs rows for this opponent."""
     if not bible:
-        return '''<div class="callout info"><strong>No defensive personnel data tagged for this opponent yet</strong> — Base/Nickel breakdown unavailable. This section will populate automatically once a CSV with the "Def Personnel" field is charted.</div>'''
-    base, nickel, total = bible["base"], bible["nickel"], bible["taggedTotal"]
-    headline = f'''<div class="g4 mb14">
-        <div class="pcard int"><div class="ppct">{base["pctOfTagged"]}%</div><div class="plbl">Base Personnel</div><div class="pcnt">{base["n"]}/{total} plays</div></div>
-        <div class="pcard fld"><div class="ppct">{nickel["pctOfTagged"]}%</div><div class="plbl">Nickel Personnel</div><div class="pcnt">{nickel["n"]}/{total} plays</div></div>
-        <div class="pcard dbl"><div class="ppct">{base["blitzPct"]}%</div><div class="plbl">Blitz Rate — Base</div><div class="pcnt">{base["blitzCount"]}/{base["n"]} plays</div></div>
-        <div class="pcard bnd"><div class="ppct">{nickel["blitzPct"]}%</div><div class="plbl">Blitz Rate — Nickel</div><div class="pcnt">{nickel["blitzCount"]}/{nickel["n"]} plays</div></div>
+        return '''<div class="callout info"><strong>No Normal Downs data available for this opponent yet.</strong> This section will populate automatically once a CSV is charted.</div>'''
+
+    n = bible["n"]
+    cards = []
+    cards.append(bible_card("Overall Coverage", bible_leaf_html(bible["overallCoverage"])))
+    cards.append(bible_card("Coverage by Off Personnel", bible_group_html(bible["coverageByOffPers"], "pers", "coverage")))
+    cards.append(bible_card("Fronts by Off Personnel", bible_group_html(bible["frontByOffPers"], "pers", "fronts")))
+
+    if bible["fibN"]:
+        cards.append(bible_card(f'Coverage to FIB ({bible["fibN"]}x)', bible_leaf_html(bible["coverageToFib"])))
+    if bible["warpN"]:
+        cards.append(bible_card(f'Coverage to Tempo — WARP ({bible["warpN"]}x)', bible_group_html(bible["coverageToTempo"], "pers", "coverage")))
+
+    if bible["coverageByBucket"]:
+        cb = bible["coverageByBucket"]
+        bucket_groups = [
+            {"label": f'NICKEL ({cb["nickel"]["n"]} of {cb["total"]})', "n": cb["nickel"]["n"], "pct": cb["nickel"]["pct"], "coverage": cb["nickel"]["coverage"]},
+            {"label": f'BASE ({cb["base"]["n"]} of {cb["total"]})', "n": cb["base"]["n"], "pct": cb["base"]["pct"], "coverage": cb["base"]["coverage"]},
+        ]
+        cards.append(bible_card("Coverage by Big Bucket Defensive Personnel", bible_group_html(bucket_groups, "label", "coverage")))
+
+    if bible["oVsD"]:
+        cards.append(bible_card("O Personnel vs D Personnel", bible_group_html(bible["oVsD"], "pers", "defpers")))
+    if bible["coverageByDefPers"]:
+        cards.append(bible_card("Coverage by Def Personnel", bible_group_html(bible["coverageByDefPers"], "defpers", "coverage")))
+
+    cards.append(bible_card("Coverage by Pers by Front", bible_pers_by_front_html(bible["coverageByPersByFront"]), span=True))
+    cards.append(bible_card("Coverage to Form Family", bible_group_html(bible["coverageToFormFamily"], "form", "coverage"), span=True))
+
+    notes_card = '''<div class="card bib-card" style="grid-column:1/-1">
+        <div class="card-hd">Notes</div>
+        <textarea class="bib-notes" rows="4" placeholder="Add scouting notes for this opponent here (personnel tendencies, coverage tells, situational reads)..."></textarea>
       </div>'''
-    splits = [
-        {"label": "Base Personnel", "fronts": base["fronts"], "coverage": base["coverage"]},
-        {"label": "Nickel Personnel", "fronts": nickel["fronts"], "coverage": nickel["coverage"]},
-    ]
-    front_cards = split_front_cards(splits)
-    cov_cards = split_coverage_cards(splits)
-    return f'''{headline}
-      <div class="print-label">Fronts by Personnel Package</div>
-      <div class="g2 mb14">
-        {"".join(front_cards)}
+
+    return f'''<div class="print-label">Normal Downs Bible — {n} plays</div>
+      <div class="g2 bib-grid">
+        {"".join(cards)}
       </div>
-      <div class="print-label">Coverage by Personnel Package</div>
-      <div class="g2">
-        {"".join(cov_cards)}
-      </div>'''
+      {notes_card}'''
