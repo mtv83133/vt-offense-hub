@@ -61,7 +61,9 @@ async function main() {
   assert(bodyBible.innerHTML.includes('O Personnel vs D Personnel'), 'MARYLAND: O Pers vs D Pers card present (has pff_DEFPERSONNEL)');
   assert(bodyBible.innerHTML.includes('Coverage by Def Personnel'), 'MARYLAND: Coverage by Def Personnel card present');
   assert(bodyBible.innerHTML.includes('Coverage by Pers by Front'), 'MARYLAND: Coverage by Pers by Front card present');
-  assert(bodyBible.innerHTML.includes('Coverage to Form Family'), 'MARYLAND: Coverage to Form Family card present');
+  assert(bodyBible.innerHTML.includes('Coverage to Formation Group'), 'MARYLAND: Coverage to Formation Group card present');
+  assert(bodyBible.innerHTML.includes('>3X1<') || bodyBible.innerHTML.includes('3X1'), 'MARYLAND: Formation Group uses 3X1/2X2-style buckets, not named formations');
+  assert(/class="bib-pct p-(hot|warm|mild|cool)"/.test(bodyBible.innerHTML), 'MARYLAND: percentage cells carry a conditional-formatting heat class');
   assert(bodyBible.innerHTML.includes('bib-notes'), 'MARYLAND: editable notes textarea present');
   assert(!bodyBible.innerHTML.includes('No Normal Downs data available'), 'MARYLAND is NOT the empty state');
 

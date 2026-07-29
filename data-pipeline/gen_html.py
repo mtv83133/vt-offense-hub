@@ -520,13 +520,26 @@ def build_coverage_panel_with_splits(bucket, label, id_prefix, canvas_prefix, sp
         </div>
       </div>'''
 
+def bib_pct_class(pct):
+    """Conditional-formatting heat band for a Bible-tab percentage: mirrors the
+    color-scale highlighting on the staff's original spreadsheet -- the higher the
+    concentration, the hotter the color, so tendencies jump out at a glance."""
+    if pct >= 40:
+        return 'p-hot'
+    if pct >= 25:
+        return 'p-warm'
+    if pct >= 15:
+        return 'p-mild'
+    return 'p-cool'
+
 def bible_leaf_html(entries):
     """Innermost Cov-Fam/Front-Fam leaf rows: [{label,count,pct}] -> compact list."""
     if not entries:
         return '<div class="bib-empty">No data</div>'
     return "".join(
         f'<div class="bib-row bib-leaf"><span class="bib-lbl">{esc(e["label"])}</span>'
-        f'<span class="bib-n">{e["count"]}x</span><span class="bib-pct">{e["pct"]}%</span></div>'
+        f'<span class="bib-n">{e["count"]}x</span>'
+        f'<span class="bib-pct {bib_pct_class(e["pct"])}">{e["pct"]}%</span></div>'
         for e in entries
     )
 
@@ -537,11 +550,13 @@ def bible_group_html(groups, label_key, inner_key):
         return '<div class="bib-empty">No data</div>'
     out = []
     for g in groups:
-        pct_str = f'{g["pct"]}%' if g.get("pct") is not None else ""
+        pct_val = g.get("pct")
+        pct_str = f'{pct_val}%' if pct_val is not None else ""
+        pct_cls = bib_pct_class(pct_val) if pct_val is not None else ""
         out.append(
             f'<div class="bib-grp"><div class="bib-row bib-hdr">'
             f'<span class="bib-lbl">{esc(str(g[label_key]))}</span>'
-            f'<span class="bib-n">{g["n"]}x</span><span class="bib-pct">{pct_str}</span></div>'
+            f'<span class="bib-n">{g["n"]}x</span><span class="bib-pct {pct_cls}">{pct_str}</span></div>'
         )
         out.append(bible_leaf_html(g[inner_key]))
         out.append('</div>')
@@ -560,7 +575,8 @@ def bible_pers_by_front_html(groups):
         for f in g["fronts"]:
             out.append(
                 f'<div class="bib-row bib-sub"><span class="bib-lbl">{esc(f["front"])}</span>'
-                f'<span class="bib-n">{f["n"]}x</span><span class="bib-pct">{f["pct"]}%</span></div>'
+                f'<span class="bib-n">{f["n"]}x</span>'
+                f'<span class="bib-pct {bib_pct_class(f["pct"])}">{f["pct"]}%</span></div>'
             )
             out.append(bible_leaf_html(f["coverage"]))
         out.append('</div>')
@@ -602,7 +618,7 @@ def build_bible_section(bible):
         cards.append(bible_card("Coverage by Def Personnel", bible_group_html(bible["coverageByDefPers"], "defpers", "coverage")))
 
     cards.append(bible_card("Coverage by Pers by Front", bible_pers_by_front_html(bible["coverageByPersByFront"]), span=True))
-    cards.append(bible_card("Coverage to Form Family", bible_group_html(bible["coverageToFormFamily"], "form", "coverage"), span=True))
+    cards.append(bible_card("Coverage to Formation Group", bible_group_html(bible["coverageToFormFamily"], "form", "coverage"), span=True))
 
     notes_card = '''<div class="card bib-card" style="grid-column:1/-1">
         <div class="card-hd">Notes</div>

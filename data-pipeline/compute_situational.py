@@ -541,10 +541,19 @@ def compute_bible(rows):
         } for f, fg in sorted(fgroups.items(), key=lambda kv: -len(kv[1]))]
         coverage_by_pers_by_front.append({"pers": pers, "n": fn, "fronts": fronts})
 
-    # ---- 10. Coverage to Form Family (FinalForm) ----
+    # ---- 10. Coverage to Formation Group (FORMATION GROUP OFF, e.g. '3X1 11P' -> '3X1') ----
+    _FORM_GROUP_RE = re.compile(r'^(\dX\d)')
+    def form_group_bucket(r):
+        v = upper(r.get('FORMATION GROUP OFF'))
+        if not v:
+            return ''
+        m = _FORM_GROUP_RE.match(v)
+        if m:
+            return m.group(1)
+        return v.split(' ')[0]
     form_groups = defaultdict(list)
     for r in rows:
-        f = upper(r.get('FinalForm'))
+        f = form_group_bucket(r)
         if f:
             form_groups[f].append(r)
     form_total = sum(len(v) for v in form_groups.values())
