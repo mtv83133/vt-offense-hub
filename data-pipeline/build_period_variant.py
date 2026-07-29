@@ -245,8 +245,18 @@ for r in rows:
     ol_map.setdefault(key, []).append(r)
 ol_lineups=[]
 for key, items in sorted(ol_map.items(), key=lambda kv:-len(kv[1])):
-    b=stat_block(items)
+    run_items=[r for r in items if is_run(r)]
+    if not run_items: continue
+    b=stat_block(run_items)
     b['lt'],b['lg'],b['c'],b['rg'],b['rt']=key
+    play_map={}
+    for r in run_items:
+        call=(r['Play Call'].strip() or r['Play'].strip() or '(unknown)')
+        play_map.setdefault(call, []).append(r)
+    plays=[]
+    for call, pitems in sorted(play_map.items(), key=lambda kv:-len(kv[1])):
+        plays.append({'call':call,'type':'RUN','n':len(pitems),'avg':avgy(pitems),'eff':round(pct(sum(1 for r in pitems if is_eff(r)),len(pitems)))})
+    b['plays']=plays
     ol_lineups.append(b)
 
 data = {
