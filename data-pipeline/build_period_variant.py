@@ -158,6 +158,55 @@ sacks=sum(1 for r in pass_rows if is_sack(r))
 sack_pct=pct(sacks, n_pass)
 overall=stat_block(rows); run_overall=stat_block(run_rows); pass_overall=pass_block(pass_rows)
 
+# ── Individual player breakdowns (name-level, from jersey-tagged columns) ──
+qb_map={}
+for r in pass_rows:
+    j=jint(r['pff_QB'])
+    if j is None: continue
+    qb_map.setdefault(j, []).append(r)
+qbs=[]
+for j, items in sorted(qb_map.items(), key=lambda kv:-len(kv[1])):
+    name=ROSTER.get(j, ('#'+str(j),'QB'))[0]
+    b=pass_block(items); b['name']=name; b['jersey']=j
+    b['sacks']=sum(1 for r in items if is_sack(r)); b['sack_pct']=pct(b['sacks'], len(items))
+    qbs.append(b)
+
+rb_rush_map={}
+for r in run_rows:
+    j=jint(r['pff_RBS'])
+    if j is None: continue
+    rb_rush_map.setdefault(j, []).append(r)
+rb_recv_map={}
+for r in pass_rows:
+    if r['TRACKING'].strip() != 'H': continue
+    j=jint(r['Target'])
+    if j is None: continue
+    rb_recv_map.setdefault(j, []).append(r)
+all_rb_j=sorted(set(list(rb_rush_map.keys())+list(rb_recv_map.keys())), key=lambda j:-len(rb_rush_map.get(j,[])))
+rbs=[]
+for j in all_rb_j:
+    name=ROSTER.get(j, ('#'+str(j),'RB'))[0]
+    rush_items=rb_rush_map.get(j, []); recv_items=rb_recv_map.get(j, [])
+    if not rush_items and not recv_items: continue
+    rush_b=stat_block(rush_items) if rush_items else {'n':0,'avg':0,'eff':0,'expl':0,'neg':0}
+    recv_b=pass_block(recv_items) if recv_items else {'n':0,'avg':0,'eff':0,'comp':0}
+    rbs.append({'name':name,'jersey':j,'rush':rush_b,
+                'recv':{'n':recv_b['n'],'avg':recv_b['avg'],'eff':recv_b['eff'],'comp':recv_b['comp']}})
+rbs.sort(key=lambda r:-r['rush']['n'])
+
+recv_map={}
+for r in pass_rows:
+    if r['TRACKING'].strip()=='H': continue
+    j=jint(r['Target'])
+    if j is None: continue
+    recv_map.setdefault(j, []).append(r)
+receivers=[]
+for j, items in sorted(recv_map.items(), key=lambda kv:-len(kv[1])):
+    ros=ROSTER.get(j); name=ros[0] if ros else ('#'+str(j)); pos=ros[1] if ros else 'WR'
+    if pos not in ('TE','WR'): continue
+    b=pass_block(items); b['name']=name; b['jersey']=j; b['pos']=pos
+    receivers.append(b)
+
 qb_group=dict(pass_overall); qb_group['name']='QB Group'; qb_group['sacks']=sacks; qb_group['sack_pct']=sack_pct; qb_group['concepts']=[]
 rb_recv_rows=[r for r in pass_rows if r['TRACKING'].strip()=='H']
 rb_group={'name':'RB Group','rush':run_overall,
@@ -269,7 +318,9 @@ data = {
     'pass_concepts':pass_concepts, 'warp_plays':warp_plays, 'positions':positions,
     'down_data':down_data, 'third_data':third_data, 'pers_data':pers_data, 'group_data':group_data,
     'procedure_data':procedure_data, 'skill_lineups':skill_lineups, 'ol_lineups':ol_lineups,
+    'qbs':qbs, 'rbs':rbs, 'receivers':receivers,
 }
 with open(os.path.join(out_dir, f'{day_key}_{variant}.json'),'w') as f:
     json.dump(data, f)
-print(f"[{variant}] n={n} n_run={n_run} n_pass={n_pass} skill_lineups={len(skill_lineups)} ol_lineups={len(ol_lineups)}")
+print(f"[{variant}] n={n} n_run={n_run} n_pass={n_pass} skill_lineups={len(skill_lineups)} ol_lineups={len(ol_lineups)} "
+      f"qbs={len(qbs)} rbs={len(rbs)} receivers={len(receivers)}")
