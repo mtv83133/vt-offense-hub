@@ -105,12 +105,14 @@ ROSTER = {
  18:('A.J. Brand','WR'),86:('J. Hobbs','WR'),15:('S. Peterkin','WR'),
  83:('L. Stuewe','WR'),28:('D. Hube','WR'),3:('Q. Brown','WR'),
  19:('T. Denmark','WR'),20:('J. Exinor Jr.','WR'),5:('M. Jackson','WR'),
+ 11:('D. Brown','WR'),
  51:('Haughawout','OL'),56:('Ghannam','OL'),66:('Cunningham','OL'),
  77:('B. Meadows','OL'),79:('J. Garrett','OL'),76:('A. Lynch','OL'),
  53:('T. Ricard','OL'),57:('L. Austin','OL'),62:('K. Altuner','OL'),
  71:('G. Crawford','OL'),61:('J. Bell','OL'),74:('M. Bright','OL'),
  75:('B. Eziuka','OL'),70:('L. Howland','OL'),65:('T. Simpson','OL'),
- 72:('J. Terry','OL'),54:('M. Troutman III','OL')
+ 72:('J. Terry','OL'),54:('M. Troutman III','OL'),52:('B. Wegdam','OL'),
+ 88:('P. Petersohn','TE')
 }
 def jint(val):
     if val is None: return None

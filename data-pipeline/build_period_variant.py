@@ -139,12 +139,14 @@ ROSTER = {
  18:('A.J. Brand','WR'),86:('J. Hobbs','WR'),15:('S. Peterkin','WR'),
  83:('L. Stuewe','WR'),28:('D. Hube','WR'),3:('Q. Brown','WR'),
  19:('T. Denmark','WR'),20:('J. Exinor Jr.','WR'),5:('M. Jackson','WR'),
+ 11:('D. Brown','WR'),
  51:('Haughawout','OL'),56:('Ghannam','OL'),66:('Cunningham','OL'),
  77:('B. Meadows','OL'),79:('J. Garrett','OL'),76:('A. Lynch','OL'),
  53:('T. Ricard','OL'),57:('L. Austin','OL'),62:('K. Altuner','OL'),
  71:('G. Crawford','OL'),61:('J. Bell','OL'),74:('M. Bright','OL'),
  75:('B. Eziuka','OL'),70:('L. Howland','OL'),65:('T. Simpson','OL'),
- 72:('J. Terry','OL'),54:('M. Troutman III','OL')
+ 72:('J. Terry','OL'),54:('M. Troutman III','OL'),52:('B. Wegdam','OL'),
+ 88:('P. Petersohn','TE')
 }
 def jint(val):
     if val is None: return None
@@ -210,6 +212,63 @@ for nm, items in sorted(warp_map.items(), key=lambda kv:-len(kv[1])):
     isp=[r for r in items if is_pass(r)]
     b=stat_block(items); b['comp']=comp_pct(isp) if isp else 0.0; b.update(route_thrown_block(isp) if isp else {}); b['name']=nm
     warp_plays.append(b)
+
+# ── Sectioned Pass Concepts (CONCEPTS / MVMT-RAP / SCREEN / RZ PASS) ────
+# Same divider grouping as Spring's self-scout Pass tab: concepts_rows is
+# everything except MVMT/RAP/SCREEN tags (those get their own sections),
+# and RZ PASS is a separate overlapping view (any pass rep with field
+# position <=12, regardless of which of the other 3 buckets it's also in).
+def _concept_list(items_all):
+    gm={}
+    for r in items_all: gm.setdefault(concept_name(r), []).append(r)
+    out=[]
+    for nm, items in sorted(gm.items(), key=lambda kv:-len(kv[1])):
+        c=pass_block(items); c['name']=nm; out.append(c)
+    return out
+
+_concepts_rows=[r for r in pass_rows if r['Play'].strip() not in ('MVMT','RAP','SCREEN')]
+_mvmt_rap_rows=[r for r in pass_rows if r['Play'].strip() in ('MVMT','RAP')]
+_screen_rows=[r for r in pass_rows if r['Play'].strip()=='SCREEN']
+_rz_pass_rows=[r for r in pass_rows if is_rz(r)]
+pass_groups={
+    'concepts':_concept_list(_concepts_rows), 'concepts_total':pass_block(_concepts_rows),
+    'mvmt_rap':_concept_list(_mvmt_rap_rows), 'mvmt_rap_total':pass_block(_mvmt_rap_rows),
+    'screen':_concept_list(_screen_rows), 'screen_total':pass_block(_screen_rows),
+    'rz':_concept_list(_rz_pass_rows), 'rz_total':pass_block(_rz_pass_rows),
+    'overall_total':pass_block(pass_rows),
+}
+
+# ── Sectioned WARP Plays (TOTAL, then per-procedure HUDDLE/WARP/ALASKA/WAIT) ──
+def _warp_play_row(items):
+    b=stat_block(items); b['comp']=comp_pct(items) if items else 0.0
+    return b
+def _warp_list(items_by_name):
+    out=[]
+    for nm, items in sorted(items_by_name.items(), key=lambda kv:-len(kv[1])):
+        p=_warp_play_row(items); p['name']=nm
+        wr=[r for r in items if is_run_sub(r)]; wpv=[r for r in items if is_pass_sub(r)]
+        if wr and wpv:
+            p['run_sub']=_warp_play_row(wr); p['run_sub']['name']='RUN'
+            p['pass_sub']=_warp_play_row(wpv); p['pass_sub']['name']='PASS'
+        out.append(p)
+    return out
+
+_warp_all_items=[r for items in warp_map.values() for r in items]
+warp_groups={
+    'total_section':_warp_list(warp_map),
+    'total':_warp_play_row(_warp_all_items),
+    'procedures':{},
+}
+for _proc in ['HUDDLE','WARP','ALASKA','WAIT']:
+    _pm={}
+    for r in rows:
+        if r['Procedure'].strip().upper() != _proc: continue
+        if r['Run Family'].strip()!='': continue
+        _nm=r['Play'].strip() or '(unknown)'
+        if _nm in WARP_EXCLUDE: continue
+        _pm.setdefault(_nm, []).append(r)
+    _proc_items=[r for items in _pm.values() for r in items]
+    warp_groups['procedures'][_proc]={'plays':_warp_list(_pm), 'total':_warp_play_row(_proc_items)}
 
 POS_KEYS=['H','F','Q','Y','Z','X']
 positions=[]
@@ -386,6 +445,7 @@ data = {
     'down_data':down_data, 'third_data':third_data, 'pers_data':pers_data, 'group_data':group_data,
     'procedure_data':procedure_data, 'skill_lineups':skill_lineups, 'ol_lineups':ol_lineups,
     'qbs':qbs, 'rbs':rbs, 'receivers':receivers,
+    'pass_groups':pass_groups, 'warp_groups':warp_groups,
 }
 with open(os.path.join(out_dir, f'{day_key}_{variant}.json'),'w') as f:
     json.dump(data, f)
