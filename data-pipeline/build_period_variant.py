@@ -104,8 +104,21 @@ def stat_block(items):
             'expl':pct(sum(1 for r in items if is_expl(r)),n),'neg':pct(sum(1 for r in items if is_neg(r)),n),
             'scramble_pct':pct(sum(1 for r in items if is_scramble(r)),n),
             'throwaway_pct':pct(sum(1 for r in items if is_throwaway(r)),n)}
+
+# ── Route Thrown breakdown (read progression) ───────────────────────────
+# The 'Route Thrown' column tags which read/route got the ball on a given
+# pass rep: '1'/'2'/'3' = 1st/2nd/3rd read, 'O' = out/checkdown, 'A' = alert
+# route, 'Q' = scramble (QB left structure). These power the RT 1ST/RT 2ND/
+# RT 3RD/RT OUT/RT ALRT/RT SCRM columns on the Pass Concepts table -- this
+# is a read-progression tag, independent of (though often correlated with)
+# the scramble_pct/throwaway_pct outcome-based stats above.
+_ROUTE_THROWN_CODES = {'rt1':'1','rt2':'2','rt3':'3','rto':'O','rta':'A','rts':'Q'}
+def route_thrown_block(items):
+    n=len(items)
+    return {k: pct(sum(1 for r in items if r['Route Thrown'].strip().upper()==code), n)
+            for k, code in _ROUTE_THROWN_CODES.items()}
 def pass_block(items):
-    b=stat_block(items); b['comp']=comp_pct(items); return b
+    b=stat_block(items); b['comp']=comp_pct(items); b.update(route_thrown_block(items)); return b
 def concept_name(r):
     primary=r['Primary'].strip(); reset=r['Reset'].strip()
     if primary: return primary+(' / '+reset if reset else '')
@@ -177,17 +190,25 @@ pass_concepts=[]
 for nm, items in sorted(gm_all.items(), key=lambda kv:-len(kv[1])):
     c=pass_block(items); c['name']=nm; pass_concepts.append(c)
 
+# WARP plays = named play-calls pulled from the raw 'Play' column, excluding
+# protection/category tags that aren't real named plays. NOTE: this is NOT
+# filtered to rows where Procedure=='WARP' -- 'Procedure' only tracks how the
+# call was communicated that rep (HUDDLE/WARP one-word/ALASKA no-huddle), not
+# whether the play itself belongs in this table. The same named play (e.g.
+# TIFFANY) can show up huddled one rep and warp-called the next; both count.
+# Requiring Procedure=='WARP' here previously dropped the vast majority of
+# real reps (a named play called via HUDDLE is still that named play).
 WARP_EXCLUDE={'RAP','MVMT','SCREEN','6MAN','5MAN','QG'}
 warp_map={}
 for r in rows:
-    if r['Procedure'].strip()=='WARP' and r['Run Family'].strip()=='':
+    if r['Run Family'].strip()=='':
         nm=r['Play'].strip() or '(unknown)'
         if nm in WARP_EXCLUDE: continue
         warp_map.setdefault(nm, []).append(r)
 warp_plays=[]
 for nm, items in sorted(warp_map.items(), key=lambda kv:-len(kv[1])):
     isp=[r for r in items if is_pass(r)]
-    b=stat_block(items); b['comp']=comp_pct(isp) if isp else 0.0; b['name']=nm
+    b=stat_block(items); b['comp']=comp_pct(isp) if isp else 0.0; b.update(route_thrown_block(isp) if isp else {}); b['name']=nm
     warp_plays.append(b)
 
 POS_KEYS=['H','F','Q','Y','Z','X']
