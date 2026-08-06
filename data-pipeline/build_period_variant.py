@@ -1,4 +1,4 @@
-import csv, json, sys, os
+import csv, json, re, sys, os
 
 if len(sys.argv) < 4:
     print("Usage: python3 build_fall_variant.py <team|skelly|combined> <path_to_csv> <day_key> [output_dir]")
@@ -16,10 +16,26 @@ with open(csv_path, encoding='utf-8-sig') as f:
     rd = csv.DictReader(f)
     rows = list(rd)
 rows = [r for r in rows if r['pff_RUNPASS'].strip() not in ('PEN','NP','')]
+
+# ── Team vs. Skelly period detection ────────────────────────────────────
+# Older exports populate COMPETITIVE directly ('SKELLY' or blank/other).
+# Newer exports leave COMPETITIVE blank entirely and instead embed the
+# period type in the Name column, e.g. "...16. SKELLY NORMAL DOWNS OFF IC,
+# Play 001" vs "...20. TEAM NORMAL DOWNS OFF IC, Play 009". Prefer the
+# explicit COMPETITIVE tag when present; fall back to parsing Name.
+def period_of(r):
+    comp = r.get('COMPETITIVE', '').strip().upper()
+    if comp == 'SKELLY': return 'SKELLY'
+    if comp: return 'TEAM'
+    name = r.get('Name', '')
+    if re.search(r'\bSKELLY\b', name, re.I): return 'SKELLY'
+    if re.search(r'\bTEAM\b', name, re.I): return 'TEAM'
+    return 'TEAM'  # unrecognized/blank Name: default to team so it isn't silently dropped
+
 if variant == 'team':
-    rows = [r for r in rows if r['COMPETITIVE'].strip() != 'SKELLY']
+    rows = [r for r in rows if period_of(r) != 'SKELLY']
 elif variant == 'skelly':
-    rows = [r for r in rows if r['COMPETITIVE'].strip() == 'SKELLY']
+    rows = [r for r in rows if period_of(r) == 'SKELLY']
 print(f"[{variant}] usable rows:", len(rows))
 
 def gain(r):
@@ -27,20 +43,43 @@ def gain(r):
     if s in ('', 'NP'): return 0.0
     try: return float(s)
     except: return 0.0
-def is_sack(r): return r['pff_PASSRESULT'].strip()=='S'
-def is_comp(r): return r['pff_PASSRESULT'].strip()=='C'
+
+# ── Pass-result normalization ───────────────────────────────────────────
+# Some exports code pff_PASSRESULT with single letters (C/I/D/S/X/Q), others
+# spell it out (COMPLETE/INCOMPLETE/DROP/INTERCEPTION/SCRAMBLE DRILL) and
+# tag sacks via pff_RUNPASS='SACK' with a blank result instead of 'S'.
+# presult() normalizes either form to a single internal code so the rest of
+# the stat logic doesn't care which export style produced the row.
+# Legend: C=Complete I=Incomplete D=Drop S=Sack X=Interception Q=Scramble
+# Drill TA=Throwaway (new; tracked as its own stat, not folded into comp%).
+_PRESULT_MAP = {
+    'COMPLETE':'C','INCOMPLETE':'I','DROP':'D','INTERCEPTION':'X',
+    'SCRAMBLE DRILL':'Q','THROWAWAY':'TA','SACK':'S',
+    'C':'C','I':'I','D':'D','S':'S','X':'X','Q':'Q','R':'R',
+}
+def presult(r):
+    rp = r['pff_RUNPASS'].strip().upper()
+    if rp == 'SACK': return 'S'
+    raw = r['pff_PASSRESULT'].strip().upper()
+    return _PRESULT_MAP.get(raw, raw)
+
+def is_sack(r): return presult(r)=='S'
+def is_comp(r): return presult(r)=='C'
+def is_scramble(r): return presult(r)=='Q'
+def is_throwaway(r): return presult(r)=='TA'
+def is_int(r): return presult(r)=='X'
 def is_eff(r): return r['Efficient'].strip()=='Y'
 def is_expl(r): return r['EXPLOSIVE'].strip()=='Y'
 def is_run(r): return r['Run Family'].strip()!=''
 def is_pass(r): return r['Run Family'].strip()==''
 def is_run_sub(r):
-    pr = r['pff_PASSRESULT'].strip()
+    pr = presult(r)
     if pr == 'R': return True
-    if pr == '': return r['pff_RUNPASS'].strip() == 'R'  # blank result: fall back to the called tag, don't assume
+    if pr == '': return r['pff_RUNPASS'].strip().upper() == 'R'  # blank result: fall back to the called tag, don't assume
     return False
 def is_pass_sub(r):
-    pr = r['pff_PASSRESULT'].strip()
-    return pr in ('C','I','S','D','X','Q')
+    pr = presult(r)
+    return pr in ('C','I','S','D','X','TA','Q')
 def is_neg(r): return gain(r) < 0 or is_sack(r)
 def is_rz(r):
     fp = r['pff_FIELDPOSITION'].strip()
@@ -50,14 +89,21 @@ def is_rz(r):
     return False
 def pct(cnt,total): return round(cnt/total*1000)/10 if total else 0.0
 def avgy(items): return round(sum(gain(r) for r in items)/len(items)*10)/10 if items else 0.0
-def targeted(items): return [r for r in items if r['pff_PASSRESULT'].strip() in ('C','I','D')]
+# Targeted attempts for completion% purposes: complete/incomplete/drop/
+# interception -- an INT is charted like it would count in a real game
+# (a failed pass attempt, hurting comp%). Scrambles and throwaways are
+# NOT folded in here -- they get their own scramble_pct/throwaway_pct
+# instead of diluting true target/completion numbers.
+def targeted(items): return [r for r in items if presult(r) in ('C','I','D','X')]
 def comp_pct(items):
     ta = targeted(items)
     return pct(sum(1 for r in ta if is_comp(r)), len(ta))
 def stat_block(items):
     n=len(items)
     return {'n':n,'avg':avgy(items),'eff':pct(sum(1 for r in items if is_eff(r)),n),
-            'expl':pct(sum(1 for r in items if is_expl(r)),n),'neg':pct(sum(1 for r in items if is_neg(r)),n)}
+            'expl':pct(sum(1 for r in items if is_expl(r)),n),'neg':pct(sum(1 for r in items if is_neg(r)),n),
+            'scramble_pct':pct(sum(1 for r in items if is_scramble(r)),n),
+            'throwaway_pct':pct(sum(1 for r in items if is_throwaway(r)),n)}
 def pass_block(items):
     b=stat_block(items); b['comp']=comp_pct(items); return b
 def concept_name(r):
