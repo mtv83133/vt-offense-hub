@@ -207,11 +207,17 @@ for nm, items in sorted(gm_all.items(), key=lambda kv:-len(kv[1])):
 # Requiring Procedure=='WARP' here previously dropped the vast majority of
 # real reps (a named play called via HUDDLE is still that named play).
 # ALSO NOT filtered to pass reps only (Run Family blank) -- a named WARP
-# play-call can be a designed run (e.g. WZ, HEDGEHOG, BLOODHOUND), and Matt
+# play-call can be a designed run (e.g. HEDGEHOG, BLOODHOUND), and Matt
 # wants those included in the WARP Plays section too, with a RUN/PASS
 # sub-breakdown per play mirroring the Run Family section's pattern (see
 # is_run_sub/is_pass_sub + the run_sub/pass_sub gate in _warp_list below).
-WARP_EXCLUDE={'RAP','MVMT','SCREEN','6MAN','5MAN','QG'}
+# NOTE: WZ/TZ/GAP/MZ are NOT real WARP play names -- they're generic
+# Wide Zone/Tite Zone/Gap/Mid Zone run-FAMILY shorthand (same as the
+# Run Family tag itself), used when no distinct coded play name was
+# called. A genuine named/coded run call (HEDGEHOG, BLOODHOUND, etc.)
+# belongs in WARP Plays; a bare family abbreviation does not. Confirmed
+# by Matt after Practice #2 (WZ had shown up as a WARP entry -- wrong).
+WARP_EXCLUDE={'RAP','MVMT','SCREEN','6MAN','5MAN','QG','WZ','TZ','GAP','MZ'}
 warp_map={}
 for r in rows:
     nm=r['Play'].strip() or '(unknown)'
