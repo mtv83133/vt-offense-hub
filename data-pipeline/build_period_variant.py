@@ -65,6 +65,7 @@ def presult(r):
 
 def is_sack(r): return presult(r)=='S'
 def is_comp(r): return presult(r)=='C'
+def is_drop(r): return presult(r)=='D'
 def is_scramble(r): return presult(r)=='Q'
 def is_throwaway(r): return presult(r)=='TA'
 def is_int(r): return presult(r)=='X'
@@ -346,6 +347,7 @@ for j, items in sorted(recv_map.items(), key=lambda kv:-len(kv[1])):
     ros=ROSTER.get(j); name=ros[0] if ros else ('#'+str(j)); pos=ros[1] if ros else 'WR'
     if pos not in ('TE','WR'): continue
     b=pass_block(items); b['name']=name; b['jersey']=j; b['pos']=pos
+    b['drops']=sum(1 for r in items if is_drop(r))
     receivers.append(b)
 
 qb_group=dict(pass_overall); qb_group['name']='QB Group'; qb_group['sacks']=sacks; qb_group['sack_pct']=sack_pct; qb_group['concepts']=[]
@@ -357,9 +359,13 @@ te_rows=[r for r in pass_rows if r['TRACKING'].strip()=='Y']
 wr_rows=[r for r in pass_rows if r['TRACKING'].strip() in ('X','Z','F')]
 recv_groups=[]
 if te_rows:
-    b=pass_block(te_rows); b.update({'pos':'Y','label':'TE','name':'TE (Y)'}); recv_groups.append(b)
+    b=pass_block(te_rows); b.update({'pos':'Y','label':'TE','name':'TE (Y)'})
+    b['drops']=sum(1 for r in te_rows if is_drop(r))
+    recv_groups.append(b)
 if wr_rows:
-    b=pass_block(wr_rows); b.update({'pos':'Z','label':'WR','name':'WR (Z)'}); recv_groups.append(b)
+    b=pass_block(wr_rows); b.update({'pos':'Z','label':'WR','name':'WR (Z)'})
+    b['drops']=sum(1 for r in wr_rows if is_drop(r))
+    recv_groups.append(b)
 
 down_data=[]
 for d in ['1','2','3','4']:
