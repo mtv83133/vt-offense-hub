@@ -12,11 +12,16 @@ building the Skelly/Team/Combined rep-filter for Spring 2026 + Fall Camp:
   4. The "both-or-neither" rule: a run_sub/pass_sub sub-breakdown must
      either have BOTH keys or NEITHER. Seeing only one means a play that
      was 100% run or 100% pass got a redundant/misleading sub-breakdown.
-  5. Known-bad WARP entry names -- protection calls (6MAN, 5MAN) and
-     run-scheme/category abbreviations (WZ, TZ, GAP, MZ, RAP, MVMT,
-     SCREEN, QG) should never appear as a WARP play name. If a NEW one
-     shows up that isn't obviously a real play-call name, don't guess --
-     ask Matt before excluding or keeping it (see README.md).
+  5. Known-bad WARP entry names -- protection/category tags (6MAN, 5MAN,
+     RAP, MVMT, SCREEN, QG) should never appear as a WARP play name; this
+     mirrors build_period_variant.py's WARP_EXCLUDE exactly (kept in sync
+     by hand). NOTE: WZ/TZ/GAP/MZ were previously (wrongly) included here
+     as "run-scheme abbreviations" -- as of Fall Camp Practice #2, Matt
+     confirmed WARP plays should include named run-play calls too (WZ =
+     Wide Zone, and others like HEDGEHOG/BLOODHOUND), so short codes are
+     NOT automatically bad. If a NEW short/ambiguous name shows up that
+     isn't obviously a protection/category tag, don't guess -- ask Matt
+     before excluding or keeping it (see README.md).
   6. WARP-total consistency: PW_DATA.warp.total.n (and each tempo
      procedure's total.n) must equal the sum of its own entries, and must
      be <= pass_ov.n <= overall.n. A mismatch here means `total` was
@@ -29,7 +34,7 @@ Exits non-zero (and prints every problem found) if anything fails.
 import json, re, subprocess, sys, tempfile
 from html.parser import HTMLParser
 
-BAD_WARP_NAMES = {'6MAN', '5MAN', 'RAP', 'MVMT', 'SCREEN', 'WZ', 'TZ', 'GAP', 'MZ', 'QG'}
+BAD_WARP_NAMES = {'6MAN', '5MAN', 'RAP', 'MVMT', 'SCREEN', 'QG'}
 
 
 def extract_js_object(html, prefix):

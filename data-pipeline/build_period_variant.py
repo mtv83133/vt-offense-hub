@@ -108,11 +108,16 @@ def stat_block(items):
 # ── Route Thrown breakdown (read progression) ───────────────────────────
 # The 'Route Thrown' column tags which read/route got the ball on a given
 # pass rep: '1'/'2'/'3' = 1st/2nd/3rd read, 'O' = out/checkdown, 'A' = alert
-# route, 'Q' = scramble (QB left structure). These power the RT 1ST/RT 2ND/
-# RT 3RD/RT OUT/RT ALRT/RT SCRM columns on the Pass Concepts table -- this
-# is a read-progression tag, independent of (though often correlated with)
-# the scramble_pct/throwaway_pct outcome-based stats above.
-_ROUTE_THROWN_CODES = {'rt1':'1','rt2':'2','rt3':'3','rto':'O','rta':'A','rts':'Q'}
+# route, 'Q' = scramble (QB left structure). Starting Fall Camp Practice #2,
+# a throwaway rep is also tagged 'TA' in this column (previously it just
+# fell through with no route-thrown tag at all). These power the RT 1ST/
+# RT 2ND/RT 3RD/RT OUT/RT ALRT/RT SCRM/RT TA columns on the Pass Concepts
+# table -- this is a read-progression tag, independent of (though often
+# correlated with) the scramble_pct/throwaway_pct outcome-based stats above
+# -- e.g. RT TA and TA% happen to coincide in current data but are tracked
+# as separate columns on purpose, same as RT SCRM vs SCRM% (confirmed NOT
+# always identical once more practices are logged).
+_ROUTE_THROWN_CODES = {'rt1':'1','rt2':'2','rt3':'3','rto':'O','rta':'A','rts':'Q','rtta':'TA'}
 def route_thrown_block(items):
     n=len(items)
     return {k: pct(sum(1 for r in items if r['Route Thrown'].strip().upper()==code), n)
@@ -146,7 +151,8 @@ ROSTER = {
  71:('G. Crawford','OL'),61:('J. Bell','OL'),74:('M. Bright','OL'),
  75:('B. Eziuka','OL'),70:('L. Howland','OL'),65:('T. Simpson','OL'),
  72:('J. Terry','OL'),54:('M. Troutman III','OL'),52:('B. Wegdam','OL'),
- 88:('P. Petersohn','TE')
+ 88:('P. Petersohn','TE'),
+ 89:('H. Zell','WR'),60:('M. Cochrane','OL'),55:('T. Wilder','OL'),
 }
 def jint(val):
     if val is None: return None
@@ -200,13 +206,17 @@ for nm, items in sorted(gm_all.items(), key=lambda kv:-len(kv[1])):
 # TIFFANY) can show up huddled one rep and warp-called the next; both count.
 # Requiring Procedure=='WARP' here previously dropped the vast majority of
 # real reps (a named play called via HUDDLE is still that named play).
+# ALSO NOT filtered to pass reps only (Run Family blank) -- a named WARP
+# play-call can be a designed run (e.g. WZ, HEDGEHOG, BLOODHOUND), and Matt
+# wants those included in the WARP Plays section too, with a RUN/PASS
+# sub-breakdown per play mirroring the Run Family section's pattern (see
+# is_run_sub/is_pass_sub + the run_sub/pass_sub gate in _warp_list below).
 WARP_EXCLUDE={'RAP','MVMT','SCREEN','6MAN','5MAN','QG'}
 warp_map={}
 for r in rows:
-    if r['Run Family'].strip()=='':
-        nm=r['Play'].strip() or '(unknown)'
-        if nm in WARP_EXCLUDE: continue
-        warp_map.setdefault(nm, []).append(r)
+    nm=r['Play'].strip() or '(unknown)'
+    if nm in WARP_EXCLUDE: continue
+    warp_map.setdefault(nm, []).append(r)
 warp_plays=[]
 for nm, items in sorted(warp_map.items(), key=lambda kv:-len(kv[1])):
     isp=[r for r in items if is_pass(r)]
@@ -263,7 +273,6 @@ for _proc in ['HUDDLE','WARP','ALASKA','WAIT']:
     _pm={}
     for r in rows:
         if r['Procedure'].strip().upper() != _proc: continue
-        if r['Run Family'].strip()!='': continue
         _nm=r['Play'].strip() or '(unknown)'
         if _nm in WARP_EXCLUDE: continue
         _pm.setdefault(_nm, []).append(r)

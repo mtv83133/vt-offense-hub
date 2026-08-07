@@ -64,7 +64,9 @@ def concept_name(r):
 
 WARP_EXCLUDE = {'RAP', 'MVMT', 'SCREEN', '6MAN', '5MAN', 'QG'}
 def warp_name(r):
-    if r['Run Family'].strip() != '': return None
+    # Kept in sync with build_period_variant.py's warp_map: WARP plays now
+    # include named run-play calls (e.g. WZ, HEDGEHOG, BLOODHOUND), not just
+    # pass reps -- no longer gated on Run Family being blank.
     nm = r['Play'].strip() or '(unknown)'
     if nm in WARP_EXCLUDE: return None
     return nm
