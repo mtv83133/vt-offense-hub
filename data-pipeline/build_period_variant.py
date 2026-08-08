@@ -73,12 +73,23 @@ def is_eff(r): return r['Efficient'].strip()=='Y'
 def is_expl(r): return r['EXPLOSIVE'].strip()=='Y'
 def is_run(r): return r['Run Family'].strip()!=''
 def is_pass(r): return r['Run Family'].strip()==''
+# Some named WARP plays are RPOs that Matt wants counted as a run on every
+# rep, never split into a PASS sub-row -- even on the rep where the QB
+# actually pulled and threw the pop pass (or a stale/leftover PASSRESULT
+# value like 'COMPLETE' got left on an otherwise-designed-run row). Confirmed
+# with Matt after Fall Camp Practice #3: CYCLONE/KOBE/HEDGEHOG are RPOs we
+# treat as runs -- do NOT add a play here just because it occasionally shows
+# a completed/incomplete PASSRESULT; ask first (MARKER, e.g., is a draw with
+# a real pass option and DOES keep the normal run/pass sub-split).
+RPO_ALWAYS_RUN = {'CYCLONE','KOBE','HEDGEHOG'}
 def is_run_sub(r):
+    if r['Play'].strip().upper() in RPO_ALWAYS_RUN: return True
     pr = presult(r)
     if pr == 'R': return True
     if pr == '': return r['pff_RUNPASS'].strip().upper() == 'R'  # blank result: fall back to the called tag, don't assume
     return False
 def is_pass_sub(r):
+    if r['Play'].strip().upper() in RPO_ALWAYS_RUN: return False
     pr = presult(r)
     return pr in ('C','I','S','D','X','TA','Q')
 def is_neg(r): return gain(r) < 0 or is_sack(r)
