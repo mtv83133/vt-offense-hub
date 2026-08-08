@@ -180,9 +180,20 @@ fam_rows=[r for r in rows if r['Run Family'].strip()!='']
 n=len(rows); n_run=len(run_rows); n_pass=len(pass_rows)
 
 FAM_ORDER=['WIDE ZONE','TITE ZONE','MID ZONE','GAP','DRAW']
+# Some exports (e.g. Fall Camp Practice #3) chart Run Family using the same
+# abbreviated shorthand as WARP_EXCLUDE (WZ/TZ/MZ) instead of the full name
+# other weeks use (WIDE ZONE/TITE ZONE/MID ZONE) -- same underlying scheme,
+# different spelling. Left unnormalized, a multi-day merge (all_variants)
+# would split one real family into two separate rows (e.g. "WIDE ZONE" from
+# one week + "WZ" from another) instead of combining them. Normalize to the
+# full name so every week's data lands in the same bucket regardless of
+# which shorthand that export happened to use.
+_RUN_FAMILY_NORMALIZE={'WZ':'WIDE ZONE','TZ':'TITE ZONE','MZ':'MID ZONE'}
 fam_map={}
 for r in fam_rows:
-    fam=r['Run Family'].strip(); sch=r['RunScheme'].strip() or '(unnamed)'
+    fam=r['Run Family'].strip().upper()
+    fam=_RUN_FAMILY_NORMALIZE.get(fam, fam)
+    sch=r['RunScheme'].strip() or '(unnamed)'
     fam_map.setdefault(fam, {}).setdefault(sch, []).append(r)
 run_families=[]
 for fam, schemes in sorted(fam_map.items(), key=lambda kv: -sum(len(v) for v in kv[1].values())):
