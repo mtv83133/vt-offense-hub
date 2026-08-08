@@ -108,20 +108,31 @@ def stat_block(items):
 
 # ── Route Thrown breakdown (read progression) ───────────────────────────
 # The 'Route Thrown' column tags which read/route got the ball on a given
-# pass rep: '1'/'2'/'3' = 1st/2nd/3rd read, 'O' = out/checkdown, 'A' = alert
-# route, 'Q' = scramble (QB left structure). Starting Fall Camp Practice #2,
-# a throwaway rep is also tagged 'TA' in this column (previously it just
-# fell through with no route-thrown tag at all). These power the RT 1ST/
-# RT 2ND/RT 3RD/RT OUT/RT ALRT/RT SCRM/RT TA columns on the Pass Concepts
-# table -- this is a read-progression tag, independent of (though often
-# correlated with) the scramble_pct/throwaway_pct outcome-based stats above
-# -- e.g. RT TA and TA% happen to coincide in current data but are tracked
-# as separate columns on purpose, same as RT SCRM vs SCRM% (confirmed NOT
-# always identical once more practices are logged).
-_ROUTE_THROWN_CODES = {'rt1':'1','rt2':'2','rt3':'3','rto':'O','rta':'A','rts':'Q','rtta':'TA'}
+# pass rep: '1'/'2'/'3'/'4' = 1st/2nd/3rd/4th read, 'O' = out/checkdown,
+# 'A' = alert route, 'Q' = scramble (QB left structure). Starting Fall Camp
+# Practice #2, a throwaway rep is also tagged 'TA' in this column
+# (previously it just fell through with no route-thrown tag at all).
+# Starting Fall Camp Practice #3: a 4th-read rep appeared for the first
+# time ('4', added as its own RT 4TH column), and some rows spelled the
+# alert route out as 'ALERT' instead of the usual 'A' -- _RT_NORMALIZE
+# folds that spelling into 'A' before matching so it isn't silently
+# dropped from RT ALRT. These power the RT 1ST/RT 2ND/RT 3RD/RT 4TH/
+# RT OUT/RT ALRT/RT SCRM/RT TA columns on the Pass Concepts table -- a
+# read-progression tag, independent of the scramble_pct/throwaway_pct
+# outcome-based stats above (kept for WARP Plays/QB tables, which have no
+# RT breakdown of their own). Per Matt's direction after Practice #3, the
+# Pass Concepts table's own TA % column (throwaway_pct) was dropped as
+# redundant now that RT TA exists there -- throwaway_pct itself is still
+# computed/kept in stat_block for WARP Plays and the QB stats table, which
+# still rely on it.
+_ROUTE_THROWN_CODES = {'rt1':'1','rt2':'2','rt3':'3','rt4':'4','rto':'O','rta':'A','rts':'Q','rtta':'TA'}
+_RT_NORMALIZE = {'ALERT':'A'}
+def rt_code(r):
+    v = r['Route Thrown'].strip().upper()
+    return _RT_NORMALIZE.get(v, v)
 def route_thrown_block(items):
     n=len(items)
-    return {k: pct(sum(1 for r in items if r['Route Thrown'].strip().upper()==code), n)
+    return {k: pct(sum(1 for r in items if rt_code(r)==code), n)
             for k, code in _ROUTE_THROWN_CODES.items()}
 def pass_block(items):
     b=stat_block(items); b['comp']=comp_pct(items); b.update(route_thrown_block(items)); return b
