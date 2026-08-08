@@ -73,23 +73,22 @@ def is_eff(r): return r['Efficient'].strip()=='Y'
 def is_expl(r): return r['EXPLOSIVE'].strip()=='Y'
 def is_run(r): return r['Run Family'].strip()!=''
 def is_pass(r): return r['Run Family'].strip()==''
-# Some named WARP plays are RPOs that Matt wants counted as a run on every
-# rep, never split into a PASS sub-row -- even on the rep where the QB
-# actually pulled and threw the pop pass (or a stale/leftover PASSRESULT
-# value like 'COMPLETE' got left on an otherwise-designed-run row). Confirmed
-# with Matt after Fall Camp Practice #3: CYCLONE/KOBE/HEDGEHOG are RPOs we
-# treat as runs -- do NOT add a play here just because it occasionally shows
-# a completed/incomplete PASSRESULT; ask first (MARKER, e.g., is a draw with
-# a real pass option and DOES keep the normal run/pass sub-split).
-RPO_ALWAYS_RUN = {'CYCLONE','KOBE','HEDGEHOG'}
+# NOTE: an earlier version of this file forced CYCLONE/KOBE/HEDGEHOG to
+# always be is_run_sub=True/is_pass_sub=False (never splitting a PASS
+# sub-row in WARP Plays/Run Family). Matt corrected that: these ARE RPOs
+# ("run plays with an option to throw the ball") and DO want the normal
+# RUN/PASS sub-section split in WARP Plays whenever a rep actually got
+# thrown -- same as MARKER. What he actually wants suppressed is these
+# plays showing up as their own row in the separate PASS CONCEPTS table
+# (see RPO_RUN_PLAYS / pc_pass_rows below), not the WARP sub-breakdown.
+# So is_run_sub/is_pass_sub are back to the original presult()/RUNPASS-
+# based logic, unmodified by play name.
 def is_run_sub(r):
-    if r['Play'].strip().upper() in RPO_ALWAYS_RUN: return True
     pr = presult(r)
     if pr == 'R': return True
     if pr == '': return r['pff_RUNPASS'].strip().upper() == 'R'  # blank result: fall back to the called tag, don't assume
     return False
 def is_pass_sub(r):
-    if r['Play'].strip().upper() in RPO_ALWAYS_RUN: return False
     pr = presult(r)
     return pr in ('C','I','S','D','X','TA','Q')
 def is_neg(r): return gain(r) < 0 or is_sack(r)
@@ -226,8 +225,24 @@ for fam, schemes in sorted(fam_map.items(), key=lambda kv: -sum(len(v) for v in 
     run_families.append(fobj)
 
 rz_rows=[r for r in pass_rows if is_rz(r)]
+
+# RPO run plays (named WARP run-play calls with a built-in pass option) do
+# NOT belong in the Pass Concepts table -- confirmed with Matt: they're run
+# plays first, already broken out with their own RUN/PASS sub-split in the
+# WARP Plays table, and showing up here too (usually as a bare play-name
+# row like "CYCLONE" since these reps have no real Primary/Full Concept
+# tagged) just duplicates/confuses that. This ONLY filters what feeds the
+# Pass Concepts table (legacy flat pass_concepts + pass_groups below) --
+# it deliberately does NOT touch the broader pass_rows used for QB/receiver
+# stats, sacks, or overall pass_overall, since a ball genuinely thrown on
+# one of these reps still counts as a real pass attempt for those. If a
+# new RPO-style run play with a pass option shows up, don't guess -- ask
+# before adding it here.
+RPO_RUN_PLAYS={'CYCLONE','KOBE','HEDGEHOG','MARKER'}
+pc_pass_rows=[r for r in pass_rows if r['Play'].strip().upper() not in RPO_RUN_PLAYS]
+
 gm_all={}
-for r in pass_rows: gm_all.setdefault(concept_name(r), []).append(r)
+for r in pc_pass_rows: gm_all.setdefault(concept_name(r), []).append(r)
 pass_concepts=[]
 for nm, items in sorted(gm_all.items(), key=lambda kv:-len(kv[1])):
     c=pass_block(items); c['name']=nm; pass_concepts.append(c)
@@ -276,16 +291,16 @@ def _concept_list(items_all):
         c=pass_block(items); c['name']=nm; out.append(c)
     return out
 
-_concepts_rows=[r for r in pass_rows if r['Play'].strip() not in ('MVMT','RAP','SCREEN')]
-_mvmt_rap_rows=[r for r in pass_rows if r['Play'].strip() in ('MVMT','RAP')]
-_screen_rows=[r for r in pass_rows if r['Play'].strip()=='SCREEN']
-_rz_pass_rows=[r for r in pass_rows if is_rz(r)]
+_concepts_rows=[r for r in pc_pass_rows if r['Play'].strip() not in ('MVMT','RAP','SCREEN')]
+_mvmt_rap_rows=[r for r in pc_pass_rows if r['Play'].strip() in ('MVMT','RAP')]
+_screen_rows=[r for r in pc_pass_rows if r['Play'].strip()=='SCREEN']
+_rz_pass_rows=[r for r in pc_pass_rows if is_rz(r)]
 pass_groups={
     'concepts':_concept_list(_concepts_rows), 'concepts_total':pass_block(_concepts_rows),
     'mvmt_rap':_concept_list(_mvmt_rap_rows), 'mvmt_rap_total':pass_block(_mvmt_rap_rows),
     'screen':_concept_list(_screen_rows), 'screen_total':pass_block(_screen_rows),
     'rz':_concept_list(_rz_pass_rows), 'rz_total':pass_block(_rz_pass_rows),
-    'overall_total':pass_block(pass_rows),
+    'overall_total':pass_block(pc_pass_rows),
 }
 
 # ── Sectioned WARP Plays (TOTAL, then per-procedure HUDDLE/WARP/ALASKA/WAIT) ──
