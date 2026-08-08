@@ -73,6 +73,25 @@ def warp_name(r):
     if nm in WARP_EXCLUDE: return None
     return nm
 
+# Kept in sync with build_period_variant.py's is_pass()/is_eff(): is_pass is
+# the "was this rep actually a pass attempt" signal (Run Family blank), used
+# by the QB profile's per-concept table (added after Fall Camp Practice #3)
+# to decide which graded reps count toward a concept's REPS/EFF%/COMPOSITE
+# row -- same definition already used for WARP Plays' comp%/route-thrown
+# columns (isp=[r for r in items if is_pass(r)]), so an RPO's pass-look rep
+# (e.g. CYCLONE thrown) counts as a pass attempt under its own name/concept,
+# while the same play's handoff reps don't show up in that table at all.
+# Also excludes PEN/NP rows -- build_period_variant.py drops these entirely
+# before computing is_pass there, and unlike that script, build_qb_grades.py
+# intentionally does NOT filter PEN rows out of `records` (its row-order join
+# needs every row to stay 1:1 with the grading CSV), so this table's own
+# is_pass flag has to do that exclusion itself rather than assume it already
+# happened.
+def is_pass(r):
+    if r['pff_RUNPASS'].strip().upper() in ('PEN', 'NP'): return False
+    return r['Run Family'].strip() == ''
+def is_eff(r): return r['Efficient'].strip() == 'Y'
+
 def jint(val):
     if val is None: return None
     s = str(val).strip()
@@ -108,6 +127,8 @@ for g, p in zip(grade_rows, practice_rows):
         'warp': warp_name(p),
         'play_call': p.get('Play Call', '').strip(),
         'notes': g.get('Notes', '').strip(),
+        'is_pass': is_pass(p),
+        'eff': is_eff(p),
     }
     for key in CATEGORIES:
         rec[key] = grade_val(g.get(CSV_COLS[key]))
