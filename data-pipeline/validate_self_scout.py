@@ -29,6 +29,17 @@ building the Skelly/Team/Combined rep-filter for Spring 2026 + Fall Camp:
      procedure's total.n) must equal the sum of its own entries, and must
      be <= pass_ov.n <= overall.n. A mismatch here means `total` was
      computed over the wrong row set again.
+  7. NEEDS CONCEPT flags (warning, non-blocking): build_period_variant.py's
+     and build_qb_grades.py's concept_name() label a pass rep "NEEDS CONCEPT
+     (6MAN)" / "(5MAN)" / "(QG)" instead of using that bare protection tag
+     as if it were a real route concept, whenever Primary/Reset/Full Concept
+     were left blank on a 6MAN/5MAN/QG-tagged rep. This script surfaces every
+     such occurrence (in pass_concepts, pass_groups.concepts, and
+     QB_GRADES_DATA records) as a WARNING rather than a hard failure --
+     confirmed with Matt this shouldn't block shipping the rest of a
+     practice's data, but it must never ship silently. Report any warning
+     printed here to Matt and ask him for the actual concept for that rep
+     (or fix the source CSV) so it can be re-spliced once known.
 
 Usage:
   python3 validate_self_scout.py path/to/self-scout.html
@@ -134,7 +145,7 @@ def check_spring_variants(sv, problems):
                     problems.append(f"BAD WARP NAME in {variant}/PW_DATA.warp.procedures/{pk}: '{e.get('name')}'")
 
 
-def check_period_data(label, fd, problems):
+def check_period_data(label, fd, problems, warnings):
     days = fd.get('days', [])
     for day in days:
         for variant, vdata in day.get('variants', {}).items():
@@ -149,6 +160,27 @@ def check_period_data(label, fd, problems):
             if pn is not None and on is not None and pn > on:
                 problems.append(f"n_pass ({pn}) > n ({on}) in {label}/{day.get('key')}/{variant} -- impossible")
 
+            for e in vdata.get('pass_concepts', []):
+                if str(e.get('name', '')).startswith('NEEDS CONCEPT'):
+                    warnings.append(f"NEEDS CONCEPT flag in {label}/{day.get('key')}/{variant}/pass_concepts: "
+                                     f"'{e.get('name')}' (n={e.get('n')}) -- ask Matt for the actual concept, "
+                                     f"see build_period_variant.py's concept_name()")
+            pg = vdata.get('pass_groups', {})
+            for e in pg.get('concepts', []):
+                if str(e.get('name', '')).startswith('NEEDS CONCEPT'):
+                    warnings.append(f"NEEDS CONCEPT flag in {label}/{day.get('key')}/{variant}/pass_groups.concepts: "
+                                     f"'{e.get('name')}' (n={e.get('n')}) -- ask Matt for the actual concept")
+
+
+def check_qb_grades_concepts(qg, warnings):
+    for day in qg.get('days', []):
+        for r in day.get('records', []):
+            c = (r.get('concept') or '')
+            if c.startswith('NEEDS CONCEPT'):
+                warnings.append(f"NEEDS CONCEPT flag in QB_GRADES_DATA/{day.get('key')}: rep #{r.get('num')} "
+                                 f"QB {r.get('qb')} concept='{c}' play_call='{r.get('play_call')}' -- ask Matt "
+                                 f"for the actual concept")
+
 
 def main():
     if len(sys.argv) != 2:
@@ -157,6 +189,7 @@ def main():
     html_path = sys.argv[1]
     html = open(html_path, encoding='utf-8').read()
     problems = []
+    warnings = []
 
     check_html(html, problems)
     check_node_syntax(html, problems)
@@ -170,7 +203,17 @@ def main():
     for var_name in ['FALL_DATA', 'INSEASON_DATA']:
         fd = extract_js_object(html, f'var {var_name} = ')
         if fd is not None:
-            check_period_data(var_name, fd, problems)
+            check_period_data(var_name, fd, problems, warnings)
+
+    qg = extract_js_object(html, 'var QB_GRADES_DATA = ')
+    if qg is not None:
+        check_qb_grades_concepts(qg, warnings)
+
+    if warnings:
+        print(f"\n{len(warnings)} WARNING(S) -- non-blocking, but must be reported and resolved:\n")
+        for w in warnings:
+            print(" !", w)
+        print()
 
     if problems:
         print(f"\n{len(problems)} PROBLEM(S) FOUND:\n")
@@ -178,7 +221,8 @@ def main():
             print(" -", p)
         sys.exit(1)
     else:
-        print("All checks passed: JSON/JS/HTML valid, no both-or-neither violations, no bad WARP names, WARP totals internally consistent.")
+        print("All checks passed: JSON/JS/HTML valid, no both-or-neither violations, no bad WARP names, WARP totals internally consistent."
+              + (f" ({len(warnings)} non-blocking warning(s) above.)" if warnings else ""))
 
 
 if __name__ == '__main__':

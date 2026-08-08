@@ -55,12 +55,23 @@ def period_of(r):
     if re.search(r'\bTEAM\b', name, re.I): return 'TEAM'
     return 'TEAM'
 
+# 6MAN/5MAN/QG are protection/tempo tags, not route concepts -- kept in sync
+# with build_period_variant.py's concept_name(). A rep tagged only with one
+# of these in Play, with no Primary/Reset or Full Concept charted, is a
+# charting gap, not a legitimate standalone "concept" (confirmed with Matt
+# after "6MAN" wrongly showed up as its own concept in the QB Profile's By
+# Concept table, Fall Camp Practice #2 data) -- flagged instead of silently
+# using the bare tag as the concept name.
+_PROTECTION_ONLY_TAGS = {'6MAN', '5MAN', 'QG'}
 def concept_name(r):
     primary = r['Primary'].strip(); reset = r['Reset'].strip()
     if primary: return primary + (' / ' + reset if reset else '')
     full = r['Full Concept'].strip()
     if full: return full
-    return r['Play'].strip() or '(unknown)'
+    play = r['Play'].strip()
+    if play.upper() in _PROTECTION_ONLY_TAGS:
+        return 'NEEDS CONCEPT (' + play.upper() + ')'
+    return play or '(unknown)'
 
 WARP_EXCLUDE = {'RAP', 'MVMT', 'SCREEN', '6MAN', '5MAN', 'QG', 'WZ', 'TZ', 'GAP', 'MZ'}
 def warp_name(r):
@@ -147,3 +158,11 @@ qb_counts = {}
 for r in records:
     qb_counts[r['qb']] = qb_counts.get(r['qb'], 0) + 1
 print(f"Wrote {out_path}: {len(records)} graded reps across {len(qb_counts)} QB(s): {qb_counts}")
+
+_needs_concept = [r for r in records if (r['concept'] or '').startswith('NEEDS CONCEPT')]
+if _needs_concept:
+    print(f"WARNING: {len(_needs_concept)} graded rep(s) have a protection/tempo-only concept "
+          f"({', '.join(sorted(set(r['concept'] for r in _needs_concept)))}) -- flagged instead of "
+          f"used as a real concept. Affected reps:")
+    for r in _needs_concept:
+        print(f"    # {r['num']}  QB {r['qb']}  Play Call='{r['play_call']}'  is_pass={r['is_pass']}")

@@ -146,12 +146,27 @@ def route_thrown_block(items):
             for k, code in _ROUTE_THROWN_CODES.items()}
 def pass_block(items):
     b=stat_block(items); b['comp']=comp_pct(items); b.update(route_thrown_block(items)); return b
+# 6MAN/5MAN/QG are protection/tempo tags, not route concepts (same category
+# as RAP/MVMT/SCREEN -- see WARP_EXCLUDE below). A rep tagged only with one
+# of these in the Play column, with no Primary/Reset or Full Concept also
+# charted, is a charting gap: the coach still needs to note the actual route
+# concept run under that protection call. Confirmed with Matt after "6MAN"
+# wrongly showed up as its own standalone "concept" in Fall Camp Practice #2
+# data (3 pass reps, Day 2 Skelly) -- it should never be treated as if it
+# were a resolved concept. concept_name() now returns a clearly-flagged
+# placeholder instead of silently using the bare protection tag, and
+# validate_self_scout.py hard-warns whenever this placeholder shows up so it
+# can't ship unnoticed again -- see that script's NEEDS_CONCEPT check.
+_PROTECTION_ONLY_TAGS={'6MAN','5MAN','QG'}
 def concept_name(r):
     primary=r['Primary'].strip(); reset=r['Reset'].strip()
     if primary: return primary+(' / '+reset if reset else '')
     full=r['Full Concept'].strip()
     if full: return full
-    return r['Play'].strip() or '(unknown)'
+    play=r['Play'].strip()
+    if play.upper() in _PROTECTION_ONLY_TAGS:
+        return 'NEEDS CONCEPT ('+play.upper()+')'
+    return play or '(unknown)'
 
 ROSTER = {
  12:('K. Ryan','QB'),17:('Grunkemeyer','QB'),14:('T. Huhn','QB'),22:('B. Baker','QB'),
@@ -520,3 +535,13 @@ with open(os.path.join(out_dir, f'{day_key}_{variant}.json'),'w') as f:
     json.dump(data, f)
 print(f"[{variant}] n={n} n_run={n_run} n_pass={n_pass} skill_lineups={len(skill_lineups)} ol_lineups={len(ol_lineups)} "
       f"qbs={len(qbs)} rbs={len(rbs)} receivers={len(receivers)}")
+
+_needs_concept=[r for r in pc_pass_rows if concept_name(r).startswith('NEEDS CONCEPT')]
+if _needs_concept:
+    print(f"[{variant}] WARNING: {len(_needs_concept)} pass rep(s) tagged with a protection/tempo-only "
+          f"Play value ({', '.join(sorted(set(concept_name(r) for r in _needs_concept)))}) and no "
+          f"Primary/Reset or Full Concept charted -- these will show as a flagged 'NEEDS CONCEPT' row "
+          f"instead of a real concept until the CSV (or Matt) supplies the actual concept. Affected reps:")
+    for r in _needs_concept:
+        print(f"    # {r.get('#','?')}  QB {r.get('pff_QB','?')}  Play='{r['Play'].strip()}'  "
+              f"Play Call='{r.get('Play Call','').strip()}'")
