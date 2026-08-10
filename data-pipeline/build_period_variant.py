@@ -163,12 +163,43 @@ def pass_block(items):
 # validate_self_scout.py hard-warns whenever this placeholder shows up so it
 # can't ship unnoticed again -- see that script's NEEDS_CONCEPT check.
 _PROTECTION_ONLY_TAGS={'6MAN','5MAN','QG'}
+# Screen plays are charted with Play='SCREEN' (a generic category tag, same
+# idea as MVMT/RAP) and the ACTUAL screen call name lives in the Protection
+# column instead -- e.g. Protection='50*51 INMATE' or '58*59 HANDCUFF' (the
+# leading NN*NN is the numbered protection call for playside*backside, not
+# part of the screen's name) or a bare 'PRISON'/'PRISON*JAIL'. Left alone,
+# every screen rep collapses into one bare "SCREEN" bucket no matter which
+# actual screen was run -- confirmed wrong by Matt (Fall Camp Practice #3+4
+# data): each distinct screen call must show up as its own concept
+# (JAIL/PRISON, INMATE, HANDCUFF, ...), same as any other named concept.
+# JAIL and PRISON are the same underlying screen call (just two names/sides
+# for it) and are always merged into one canonical "JAIL/PRISON" bucket --
+# confirmed by Matt grouping a bare 'PRISON' and a combined 'PRISON*JAIL'
+# under the same "JAIL/PRISON" label. Any other screen name passes through
+# unchanged. If Protection doesn't resolve to a name (blank, or only
+# numbers), this flags NEEDS CONCEPT (SCREEN) instead of guessing -- same
+# "flag, don't guess" pattern as the 6MAN/5MAN/QG protection-tag fix.
+_SCREEN_NAME_ALIASES={'JAIL':'JAIL/PRISON','PRISON':'JAIL/PRISON'}
+def screen_name(protection_raw):
+    prot=(protection_raw or '').strip().upper()
+    if not prot: return None
+    names=[]
+    for part in prot.split('*'):
+        toks=[t for t in part.split() if not re.match(r'^\d+[A-Z]?$', t)]
+        if toks:
+            nm=' '.join(toks)
+            names.append(_SCREEN_NAME_ALIASES.get(nm, nm))
+    names=sorted(set(n for n in names if n))
+    return '/'.join(names) if names else None
 def concept_name(r):
     primary=r['Primary'].strip(); reset=r['Reset'].strip()
     if primary: return primary+(' / '+reset if reset else '')
     full=r['Full Concept'].strip()
     if full: return full
     play=r['Play'].strip()
+    if play.upper()=='SCREEN':
+        sn=screen_name(r.get('Protection',''))
+        return sn if sn else 'NEEDS CONCEPT (SCREEN)'
     if play.upper() in _PROTECTION_ONLY_TAGS:
         return 'NEEDS CONCEPT ('+play.upper()+')'
     return play or '(unknown)'

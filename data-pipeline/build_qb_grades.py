@@ -63,12 +63,34 @@ def period_of(r):
 # Concept table, Fall Camp Practice #2 data) -- flagged instead of silently
 # using the bare tag as the concept name.
 _PROTECTION_ONLY_TAGS = {'6MAN', '5MAN', 'QG'}
+# Kept in sync with build_period_variant.py's screen_name()/concept_name():
+# screen plays are charted Play='SCREEN' with the actual screen call name in
+# the Protection column (e.g. '50*51 INMATE', '58*59 HANDCUFF', 'PRISON',
+# 'PRISON*JAIL') -- JAIL and PRISON are the same call and always merge into
+# one canonical "JAIL/PRISON" bucket. Confirmed with Matt (Fall Camp
+# Practice #3+4 data) after every screen rep was collapsing into one bare
+# "SCREEN" row in the QB Profile's By Concept table.
+_SCREEN_NAME_ALIASES = {'JAIL': 'JAIL/PRISON', 'PRISON': 'JAIL/PRISON'}
+def screen_name(protection_raw):
+    prot = (protection_raw or '').strip().upper()
+    if not prot: return None
+    names = []
+    for part in prot.split('*'):
+        toks = [t for t in part.split() if not re.match(r'^\d+[A-Z]?$', t)]
+        if toks:
+            nm = ' '.join(toks)
+            names.append(_SCREEN_NAME_ALIASES.get(nm, nm))
+    names = sorted(set(n for n in names if n))
+    return '/'.join(names) if names else None
 def concept_name(r):
     primary = r['Primary'].strip(); reset = r['Reset'].strip()
     if primary: return primary + (' / ' + reset if reset else '')
     full = r['Full Concept'].strip()
     if full: return full
     play = r['Play'].strip()
+    if play.upper() == 'SCREEN':
+        sn = screen_name(r.get('Protection', ''))
+        return sn if sn else 'NEEDS CONCEPT (SCREEN)'
     if play.upper() in _PROTECTION_ONLY_TAGS:
         return 'NEEDS CONCEPT (' + play.upper() + ')'
     return play or '(unknown)'

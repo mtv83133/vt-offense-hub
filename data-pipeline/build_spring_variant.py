@@ -1,4 +1,4 @@
-import csv, json, sys, os
+import csv, json, re, sys, os
 
 if len(sys.argv) < 3:
     print("Usage: python3 build_variant.py <team|skelly|combined> <path_to_csv> [output_dir]")
@@ -80,12 +80,40 @@ def route_block(items):
     b['rta']=pct(sum(1 for r in items if r['Route Thrown'].strip()=='A'),n)
     b['rts']=pct(sum(1 for r in items if r['Route Thrown'].strip()=='S'),n)
     return b
+# Kept in sync with build_period_variant.py's screen_name()/concept_name():
+# screen plays are charted Play='SCREEN' with the actual screen call name in
+# the Protection column (e.g. '50*51 INMATE', '58*59 HANDCUFF', 'PRISON',
+# 'PRISON*JAIL') -- JAIL and PRISON are the same call and always merge into
+# one canonical "JAIL/PRISON" bucket. Confirmed with Matt (Fall Camp
+# Practice #3+4 data) after every screen rep was collapsing into one bare
+# "SCREEN" row. Applied here too so Spring never repeats the same bug --
+# live Spring 2026 data (28 combined reps as of this fix) still needs the
+# raw Spring CSV re-run through this corrected script to actually get
+# split; the already-spliced/aggregated JSON can't be hand-patched for
+# this the way a simple label rename can, since it needs the per-rep
+# Protection value that isn't preserved in the aggregated stats.
+_SCREEN_NAME_ALIASES={'JAIL':'JAIL/PRISON','PRISON':'JAIL/PRISON'}
+def screen_name(protection_raw):
+    prot=(protection_raw or '').strip().upper()
+    if not prot: return None
+    names=[]
+    for part in prot.split('*'):
+        toks=[t for t in part.split() if not re.match(r'^\d+[A-Z]?$', t)]
+        if toks:
+            nm=' '.join(toks)
+            names.append(_SCREEN_NAME_ALIASES.get(nm, nm))
+    names=sorted(set(n for n in names if n))
+    return '/'.join(names) if names else None
 def concept_name(r):
     primary=r['Primary'].strip(); reset=r['Reset'].strip()
     if primary: return primary + (' / '+reset if reset else '')
     full=r['Full Concept'].strip()
     if full: return full
-    return r['Play'].strip() or '(unknown)'
+    play=r['Play'].strip()
+    if play.upper()=='SCREEN':
+        sn=screen_name(r.get('Protection',''))
+        return sn if sn else 'NEEDS CONCEPT (SCREEN)'
+    return play or '(unknown)'
 
 run_rows=[r for r in rows if is_run(r)]
 pass_rows=[r for r in rows if is_pass(r)]
