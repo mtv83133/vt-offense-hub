@@ -15,7 +15,12 @@ os.makedirs(out_dir, exist_ok=True)
 with open(csv_path, encoding='utf-8-sig') as f:
     rd = csv.DictReader(f)
     rows = list(rd)
-rows = [r for r in rows if r['pff_RUNPASS'].strip() not in ('PEN','NP','')]
+# 'NO PLAY' (spelled out) first appeared in Fall Camp Practice #4's export --
+# same "No Play" concept as the abbreviated 'NP', just a different export
+# spelling (same pattern as pff_PASSRESULT's C/COMPLETE variance). Treated
+# as equivalent and excluded here; flagged to Matt rather than silently
+# assumed to be something else, since it wasn't in the format before.
+rows = [r for r in rows if r['pff_RUNPASS'].strip().upper() not in ('PEN','NP','NO PLAY','')]
 
 # ── Team vs. Skelly period detection ────────────────────────────────────
 # Older exports populate COMPETITIVE directly ('SKELLY' or blank/other).
@@ -190,6 +195,7 @@ ROSTER = {
  72:('J. Terry','OL'),54:('M. Troutman III','OL'),52:('B. Wegdam','OL'),
  88:('P. Petersohn','TE'),
  89:('H. Zell','WR'),60:('M. Cochrane','OL'),55:('T. Wilder','OL'),
+ 58:('R. Lubintus','OL'),
 }
 def jint(val):
     if val is None: return None

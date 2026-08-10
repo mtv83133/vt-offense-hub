@@ -99,7 +99,10 @@ def warp_name(r):
 # is_pass flag has to do that exclusion itself rather than assume it already
 # happened.
 def is_pass(r):
-    if r['pff_RUNPASS'].strip().upper() in ('PEN', 'NP'): return False
+    # 'NO PLAY' (spelled out, first seen in Fall Camp Practice #4) is the
+    # same "No Play" concept as 'NP', just a different export spelling --
+    # kept in sync with build_period_variant.py's row-drop filter.
+    if r['pff_RUNPASS'].strip().upper() in ('PEN', 'NP', 'NO PLAY'): return False
     return r['Run Family'].strip() == ''
 def is_eff(r): return r['Efficient'].strip() == 'Y'
 

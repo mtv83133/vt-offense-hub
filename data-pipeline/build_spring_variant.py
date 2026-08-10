@@ -114,6 +114,7 @@ ROSTER = {
  72:('J. Terry','OL'),54:('M. Troutman III','OL'),52:('B. Wegdam','OL'),
  88:('P. Petersohn','TE'),
  89:('H. Zell','WR'),60:('M. Cochrane','OL'),55:('T. Wilder','OL'),
+ 58:('R. Lubintus','OL'),
 }
 def jint(val):
     if val is None: return None
