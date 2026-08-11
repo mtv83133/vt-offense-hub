@@ -125,7 +125,14 @@ def is_pass(r):
     # same "No Play" concept as 'NP', just a different export spelling --
     # kept in sync with build_period_variant.py's row-drop filter.
     if r['pff_RUNPASS'].strip().upper() in ('PEN', 'NP', 'NO PLAY'): return False
-    return r['Run Family'].strip() == ''
+    if r['Run Family'].strip() != '': return False
+    # Run Family charting-gap fallback (Fall Camp Practice #5 had it blank
+    # for every row) -- kept in sync with build_period_variant.py's
+    # is_run()/is_pass(): trust pff_RUNPASS=='R' over a blank Run Family
+    # rather than miscounting a designed run as a pass attempt in the QB
+    # profile's By Concept table.
+    if r['pff_RUNPASS'].strip().upper() == 'R': return False
+    return True
 def is_eff(r): return r['Efficient'].strip() == 'Y'
 
 def jint(val):

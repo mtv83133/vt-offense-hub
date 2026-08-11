@@ -61,6 +61,14 @@ _PRESULT_MAP = {
     'COMPLETE':'C','INCOMPLETE':'I','DROP':'D','INTERCEPTION':'X',
     'SCRAMBLE DRILL':'Q','THROWAWAY':'TA','SACK':'S',
     'C':'C','I':'I','D':'D','S':'S','X':'X','Q':'Q','R':'R',
+    # 'SCRAMBLE' (no "DRILL") and 'SCRAMLBE DRILL' (typo transposition of
+    # "SCRAMBLE DRILL") both first appeared in Fall Camp Practice #5's
+    # export -- same underlying outcome as 'SCRAMBLE DRILL' (QB left
+    # structure / scrambled), just a different spelling, so both normalize
+    # to the same 'Q' code rather than falling through unmatched (which
+    # would silently exclude these reps from scramble_pct/RT SCRM and any
+    # other Q-keyed stat).
+    'SCRAMBLE':'Q','SCRAMLBE DRILL':'Q',
 }
 def presult(r):
     rp = r['pff_RUNPASS'].strip().upper()
@@ -76,8 +84,29 @@ def is_throwaway(r): return presult(r)=='TA'
 def is_int(r): return presult(r)=='X'
 def is_eff(r): return r['Efficient'].strip()=='Y'
 def is_expl(r): return r['EXPLOSIVE'].strip()=='Y'
-def is_run(r): return r['Run Family'].strip()!=''
-def is_pass(r): return r['Run Family'].strip()==''
+# Run vs. pass is decided by Run Family being non-blank -- EXCEPT Fall Camp
+# Practice #5's export had Run Family completely blank for every single row
+# (88/88), including 28 rows clearly marked pff_RUNPASS='R' with a real
+# RunScheme populated (e.g. '28*29 KEY', '16*17 OPTION TOSS') and a real
+# yardage gain -- a charting gap for the whole practice, not a genuine
+# passing week. Left unhandled, every one of those 28 designed runs would
+# get miscounted as a pass attempt (inflating n_pass, polluting the Pass
+# Concepts table with fake "concept" rows for run play names like FREIBURG/
+# FOGBOW/KOBE, and leaving the Run Family/Scheme table completely empty for
+# the week even though 28 real runs happened). Fixed by falling back to
+# pff_RUNPASS=='R' as a run signal whenever Run Family is blank -- this is
+# a safe, well-grounded fallback (not a guess: pff_RUNPASS is a separate,
+# reliably-populated column that already directly says "this was a run"),
+# unlike the Run Family/Scheme BREAKDOWN table itself (fam_rows below),
+# which still can't be safely backfilled this way since there's no reliable
+# way to map RunScheme codes like '0*1 FAN'/'6*7 TROPIC' to the actual
+# WIDE ZONE/TITE ZONE/MID ZONE/GAP/DRAW family taxonomy without guessing --
+# that table will correctly show empty for any day where Run Family wasn't
+# charted; flag it to Matt rather than inventing a family mapping.
+def is_run(r):
+    if r['Run Family'].strip()!='': return True
+    return r['pff_RUNPASS'].strip().upper()=='R'
+def is_pass(r): return not is_run(r)
 # NOTE: an earlier version of this file forced CYCLONE/KOBE/HEDGEHOG to
 # always be is_run_sub=True/is_pass_sub=False (never splitting a PASS
 # sub-row in WARP Plays/Run Family). Matt corrected that: these ARE RPOs
