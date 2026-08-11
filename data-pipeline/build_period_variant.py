@@ -96,13 +96,17 @@ def is_expl(r): return r['EXPLOSIVE'].strip()=='Y'
 # the week even though 28 real runs happened). Fixed by falling back to
 # pff_RUNPASS=='R' as a run signal whenever Run Family is blank -- this is
 # a safe, well-grounded fallback (not a guess: pff_RUNPASS is a separate,
-# reliably-populated column that already directly says "this was a run"),
-# unlike the Run Family/Scheme BREAKDOWN table itself (fam_rows below),
-# which still can't be safely backfilled this way since there's no reliable
-# way to map RunScheme codes like '0*1 FAN'/'6*7 TROPIC' to the actual
-# WIDE ZONE/TITE ZONE/MID ZONE/GAP/DRAW family taxonomy without guessing --
-# that table will correctly show empty for any day where Run Family wasn't
-# charted; flag it to Matt rather than inventing a family mapping.
+# reliably-populated column that already directly says "this was a run").
+# The Run Family/Scheme BREAKDOWN table itself (fam_rows/fam_map below) is
+# backfilled separately via run_family_of()/family_from_scheme() -- Matt
+# supplied the actual RunScheme-number-to-family mapping after Practice #5
+# (see the comment above _SCHEME_DIGIT_FAMILY near fam_rows) -- so that
+# table now also populates correctly for a day where Run Family wasn't
+# charted, as long as RunScheme was. If a future day has BOTH Run Family
+# blank AND RunScheme unparseable (no digit pattern, no 'PAINT'), a run rep
+# still counts correctly toward n_run/n_pass via this pff_RUNPASS fallback,
+# but won't appear in the Run Family/Scheme breakdown table -- flag that
+# specific gap to Matt rather than guessing a family for it.
 def is_run(r):
     if r['Run Family'].strip()!='': return True
     return r['pff_RUNPASS'].strip().upper()=='R'
@@ -265,11 +269,6 @@ def jint(val):
     try: return int(s)
     except: return None
 
-run_rows=[r for r in rows if is_run(r)]
-pass_rows=[r for r in rows if is_pass(r)]
-fam_rows=[r for r in rows if r['Run Family'].strip()!='']
-n=len(rows); n_run=len(run_rows); n_pass=len(pass_rows)
-
 FAM_ORDER=['WIDE ZONE','TITE ZONE','MID ZONE','GAP','DRAW']
 # Some exports (e.g. Fall Camp Practice #3) chart Run Family using the same
 # abbreviated shorthand as WARP_EXCLUDE (WZ/TZ/MZ) instead of the full name
@@ -280,10 +279,54 @@ FAM_ORDER=['WIDE ZONE','TITE ZONE','MID ZONE','GAP','DRAW']
 # full name so every week's data lands in the same bucket regardless of
 # which shorthand that export happened to use.
 _RUN_FAMILY_NORMALIZE={'WZ':'WIDE ZONE','TZ':'TITE ZONE','MZ':'MID ZONE'}
-fam_map={}
-for r in fam_rows:
+# Fall Camp Practice #5 had Run Family blank for the ENTIRE practice (see
+# is_run/is_pass above) -- originally left the Run Family/Scheme breakdown
+# table empty for that day rather than guess at a mapping. Matt then gave
+# the actual rule: RunScheme's leading playside*backside number pair (e.g.
+# '28*29 KEY', '0*1 FAN', '16*17 OPTION TOSS') uses the same 0-9 hole-
+# numbering system used elsewhere in the CSV (Protection/screen calls) --
+# the family is keyed off the LAST digit of the first number (if it's a
+# two-digit call like '28' or '16', take the ones digit -- '28'->'8',
+# '16'->'6'; a one-digit call like '0' or '4' is used directly). Confirmed
+# against real Practice #5 data: '28*29 KEY' (digit 8) -> WIDE ZONE,
+# '24*25 COWBOY' (digit 4) -> MID ZONE, matching the digit map below built
+# from Matt's direct examples (TZ=0*1, MZ=4*5, GAP=6*7, WZ=8*9). DRAW has
+# no number -- it's the literal word 'PAINT' instead (Matt: "DRAW = PAINT").
+# This ONLY supplies a family when the CSV's own Run Family column is blank
+# -- a charted Run Family value always wins, this is purely a backfill for
+# the charting-gap scenario, not a general override.
+_SCHEME_DIGIT_FAMILY={'0':'TITE ZONE','1':'TITE ZONE','4':'MID ZONE','5':'MID ZONE',
+                      '6':'GAP','7':'GAP','8':'WIDE ZONE','9':'WIDE ZONE'}
+def family_from_scheme(scheme_raw):
+    s=(scheme_raw or '').strip().upper()
+    if not s: return None
+    if 'PAINT' in s: return 'DRAW'
+    m=re.search(r'(\d+)\*\d+', s)
+    if not m: return None
+    digit=m.group(1)[-1]
+    return _SCHEME_DIGIT_FAMILY.get(digit)
+def run_family_of(r):
     fam=r['Run Family'].strip().upper()
     fam=_RUN_FAMILY_NORMALIZE.get(fam, fam)
+    if fam: return fam
+    return family_from_scheme(r.get('RunScheme','')) or ''
+
+run_rows=[r for r in rows if is_run(r)]
+pass_rows=[r for r in rows if is_pass(r)]
+# Restrict to actual RUN reps (is_run(r)) even though run_family_of() can
+# resolve a family from RunScheme alone -- a couple of Practice #5 rows
+# have BOTH a RunScheme value charted AND a real pass result (an RPO-style
+# rep where the scheme was called but the ball was thrown), and those must
+# stay out of the Run Family/Scheme breakdown table the same way they
+# always have (that table is runs only) -- confirmed 3 such rows (#45, #53,
+# #60, all pff_RUNPASS='P' with a populated RunScheme) would otherwise have
+# been double-counted into both n_pass and a run family bucket.
+fam_rows=[r for r in rows if is_run(r) and run_family_of(r)]
+n=len(rows); n_run=len(run_rows); n_pass=len(pass_rows)
+
+fam_map={}
+for r in fam_rows:
+    fam=run_family_of(r)
     sch=r['RunScheme'].strip() or '(unnamed)'
     fam_map.setdefault(fam, {}).setdefault(sch, []).append(r)
 run_families=[]
