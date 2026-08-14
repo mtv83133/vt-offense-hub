@@ -93,14 +93,22 @@ def route_block(items):
 # this the way a simple label rename can, since it needs the per-rep
 # Protection value that isn't preserved in the aggregated stats.
 _SCREEN_NAME_ALIASES={'JAIL':'JAIL/PRISON','PRISON':'JAIL/PRISON'}
+# Kept in sync with build_period_variant.py.
+_SCREEN_DIRECTION_WORDS={'RT','LT','SPRINT'}
 def screen_name(protection_raw):
     prot=(protection_raw or '').strip().upper()
     if not prot: return None
     names=[]
     for part in prot.split('*'):
-        toks=[t for t in part.split() if not re.match(r'^\d+[A-Z]?$', t)]
+        toks=[t for t in part.split() if not re.match(r'^\d+[A-Z]?$', t)
+              and t not in _SCREEN_DIRECTION_WORDS]
+        # Kept in sync with build_period_variant.py: a part with 2+ tokens
+        # after stripping numeric prefixes and direction words doesn't match
+        # a known shape -- flag as unresolved instead of guessing.
+        if len(toks)>1:
+            return None
         if toks:
-            nm=' '.join(toks)
+            nm=toks[0]
             names.append(_SCREEN_NAME_ALIASES.get(nm, nm))
     names=sorted(set(n for n in names if n))
     return '/'.join(names) if names else None

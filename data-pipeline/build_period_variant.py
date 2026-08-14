@@ -213,14 +213,28 @@ _PROTECTION_ONLY_TAGS={'6MAN','5MAN','QG'}
 # numbers), this flags NEEDS CONCEPT (SCREEN) instead of guessing -- same
 # "flag, don't guess" pattern as the 6MAN/5MAN/QG protection-tag fix.
 _SCREEN_NAME_ALIASES={'JAIL':'JAIL/PRISON','PRISON':'JAIL/PRISON'}
+# Direction/motion words that show up alongside a screen's real name in the
+# Protection column (e.g. "SPRINT RT*LT WATERFALL", first seen Fall Camp
+# Practice #7 -- confirmed against that rep's full Play Call text, which
+# literally read "...Y-WATERFALL SCREEN", i.e. WATERFALL is the real name and
+# "SPRINT RT"/"LT" are just protection/motion-direction tags, same role as
+# the NN*NN numeric prefix). Stripped the same way numeric tokens are.
+_SCREEN_DIRECTION_WORDS={'RT','LT','SPRINT'}
 def screen_name(protection_raw):
     prot=(protection_raw or '').strip().upper()
     if not prot: return None
     names=[]
     for part in prot.split('*'):
-        toks=[t for t in part.split() if not re.match(r'^\d+[A-Z]?$', t)]
+        toks=[t for t in part.split() if not re.match(r'^\d+[A-Z]?$', t)
+              and t not in _SCREEN_DIRECTION_WORDS]
+        # A part that still has 2+ tokens after stripping numeric prefixes
+        # and known direction words doesn't match any known shape -- joining
+        # the words would guess at a name. Flag as unresolved (NEEDS CONCEPT)
+        # instead; ask Matt what the real screen name is for this pattern.
+        if len(toks)>1:
+            return None
         if toks:
-            nm=' '.join(toks)
+            nm=toks[0]
             names.append(_SCREEN_NAME_ALIASES.get(nm, nm))
     names=sorted(set(n for n in names if n))
     return '/'.join(names) if names else None
@@ -301,7 +315,7 @@ def family_from_scheme(scheme_raw):
     s=(scheme_raw or '').strip().upper()
     if not s: return None
     if 'PAINT' in s: return 'DRAW'
-    m=re.search(r'(\d+)\*\d+', s)
+    m=re.search(r'(\d+)\s*\*\s*\d+', s)
     if not m: return None
     digit=m.group(1)[-1]
     return _SCHEME_DIGIT_FAMILY.get(digit)
