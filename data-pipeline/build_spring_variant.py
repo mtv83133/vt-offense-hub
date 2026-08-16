@@ -47,11 +47,15 @@ def is_pass_sub(r):
     return pr in ('C','I','S','D','X','Q')
 def is_neg(r): return gain(r) < 0 or is_sack(r)
 def is_rz(r):
+    # Kept in sync with build_period_variant.py's is_rz() -- some exports omit the '+'
+    # sign for opponent-territory field position values (a bare '12' means '+12'); only
+    # a leading '-' means our own territory (never red zone). See build_period_variant.py
+    # for the full rationale/confirmation.
     fp = r['pff_FIELDPOSITION'].strip()
-    if fp.startswith('+'):
-        try: return int(fp[1:]) <= 12
-        except: return False
-    return False
+    if not fp or fp.startswith('-'): return False
+    s = fp[1:] if fp.startswith('+') else fp
+    try: return int(s) <= 12
+    except: return False
 
 def pct(cnt,total): return round(cnt/total*1000)/10 if total else 0.0
 def avgy(items): return round(sum(gain(r) for r in items)/len(items)*10)/10 if items else 0.0

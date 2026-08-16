@@ -145,11 +145,21 @@ def is_pass_sub(r):
     return pr in ('C','I','S','D','X','TA','Q')
 def is_neg(r): return gain(r) < 0 or is_sack(r)
 def is_rz(r):
+    # pff_FIELDPOSITION normally uses '+N' for opponent territory ('-N' for our own
+    # territory), but some exports (confirmed Fall Camp Practice #9, e.g. every rep in
+    # the "REDZONE SKELLY"/"TEAM 3 - REDZONE"/"TEAM 6 - LOW RZ/GL" periods, and the tail
+    # end of "TEAM 2 - 50 YD LINE" once the scripted drive works its way downfield) omit
+    # the '+' sign entirely for opponent-territory values -- a bare '12' means the same
+    # thing as '+12'. Only a leading '-' unambiguously means our own territory (never
+    # red zone for us). Treat a bare positive integer the same as an explicit '+' one --
+    # confirmed safe: every bare-small-number row checked was inside an explicitly
+    # red-zone-named period or a drive-script period that had clearly worked its way
+    # inside the 15 by that point, never a bare small number meaning our own territory.
     fp = r['pff_FIELDPOSITION'].strip()
-    if fp.startswith('+'):
-        try: return int(fp[1:]) <= 12
-        except: return False
-    return False
+    if not fp or fp.startswith('-'): return False
+    s = fp[1:] if fp.startswith('+') else fp
+    try: return int(s) <= 12
+    except: return False
 def pct(cnt,total): return round(cnt/total*1000)/10 if total else 0.0
 def avgy(items): return round(sum(gain(r) for r in items)/len(items)*10)/10 if items else 0.0
 # Targeted attempts for completion% purposes: complete/incomplete/drop/
@@ -507,7 +517,19 @@ def _is_mvmt_rap(r):
 _concepts_rows=[r for r in pc_pass_rows if r['Play'].strip().upper()!='SCREEN' and not _is_mvmt_rap(r)]
 _mvmt_rap_rows=[r for r in pc_pass_rows if _is_mvmt_rap(r)]
 _screen_rows=[r for r in pc_pass_rows if r['Play'].strip().upper()=='SCREEN']
-_rz_pass_rows=[r for r in pc_pass_rows if is_rz(r)]
+# RZ PASS is intentionally sourced from the UNFILTERED pass_rows, not
+# pc_pass_rows -- Matt confirmed (twice) that ANY pass rep inside the +12
+# belongs in this section regardless of whether it's a normal dropback
+# concept, a WARP-named call with no resolved Primary/Full Concept (falls
+# back to the bare Play name via concept_name()), or an RPO play that's
+# otherwise excluded from the main CONCEPTS/MVMT-RAP/SCREEN buckets
+# (RPO_RUN_PLAYS/RPO_CONCEPT_NAMES). RZ PASS is a genuinely overlapping
+# view across field position, not a 4th mutually-exclusive bucket -- using
+# pc_pass_rows here was silently dropping red-zone RPO throws (e.g. a
+# red-zone GLANCE/MARKER/KOBE completion) from this section even though
+# the Overview tab's own RZ stat card (rz_rows, above) already correctly
+# counts them. Do not change this back to pc_pass_rows.
+_rz_pass_rows=[r for r in pass_rows if is_rz(r)]
 pass_groups={
     'concepts':_concept_list(_concepts_rows), 'concepts_total':pass_block(_concepts_rows),
     'mvmt_rap':_concept_list(_mvmt_rap_rows), 'mvmt_rap_total':pass_block(_mvmt_rap_rows),
