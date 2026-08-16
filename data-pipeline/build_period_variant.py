@@ -415,7 +415,24 @@ rz_rows=[r for r in pass_rows if is_rz(r)]
 # a real named play whose pass-look rep should count as a pass attempt
 # everywhere but not show up as its own fake "concept" row on Pass Concepts.
 RPO_RUN_PLAYS={'CYCLONE','KOBE','HEDGEHOG','MARKER','GERBIL','MEXICO'}
-pc_pass_rows=[r for r in pass_rows if r['Play'].strip().upper() not in RPO_RUN_PLAYS]
+# Same RPO exclusion as RPO_RUN_PLAYS above, but keyed on the RESOLVED
+# concept name instead of the Play column -- for an RPO whose Play is a
+# generic run-family shorthand (WZ/TZ/GAP/MZ, not a distinct coded call),
+# RPO_RUN_PLAYS can't match it since there's no distinct Play name to key
+# off. GLANCE (Fall Camp Practice #8, row #24: Play='MZ', RunScheme=
+# '24*25 FILL', Full Concept resolved to 'GLANCE' via the RunScheme-embedded-
+# tag fix) was initially left IN Pass Concepts on the theory that a real
+# resolved concept name should always show -- Matt corrected this directly:
+# "GLANCE should not be included in pass concepts, that is an RPO." Same
+# treatment as CYCLONE/KOBE/etc: still counts as a real pass attempt in QB
+# stats and still shows on the Run Family breakdown's pass_sub (MID ZONE,
+# unaffected by this -- keyed on run_family_of(), not concept_name()) and in
+# the QB Profile's By Concept table (build_qb_grades.py doesn't filter by
+# this set, same asymmetry as RPO_RUN_PLAYS -- see §1b), just not on the
+# team-level Pass Concepts table itself.
+RPO_CONCEPT_NAMES={'GLANCE'}
+pc_pass_rows=[r for r in pass_rows if r['Play'].strip().upper() not in RPO_RUN_PLAYS
+              and concept_name(r) not in RPO_CONCEPT_NAMES]
 
 gm_all={}
 for r in pc_pass_rows: gm_all.setdefault(concept_name(r), []).append(r)
@@ -467,9 +484,29 @@ def _concept_list(items_all):
         c=pass_block(items); c['name']=nm; out.append(c)
     return out
 
-_concepts_rows=[r for r in pc_pass_rows if r['Play'].strip() not in ('MVMT','RAP','SCREEN')]
-_mvmt_rap_rows=[r for r in pc_pass_rows if r['Play'].strip() in ('MVMT','RAP')]
-_screen_rows=[r for r in pc_pass_rows if r['Play'].strip()=='SCREEN']
+# MVMT/RAP section membership: originally just Play in ('MVMT','RAP') -- but
+# Matt confirmed (Fall Camp Practice #8 review) that a real named play call
+# (DODGE, BEAMER, TIFFANY, ...) can ALSO be a movement/bootleg pass and
+# belongs in this section, same as a bare MVMT/RAP tag -- "DASH OREGON =
+# MVMNT PASS -- always check Protection column for DASH, SPRINT, NAKED for
+# MVMT/RAP sections." Confirmed against the data: DODGE (Full Concept
+# usually 'DASH OREGON'), BEAMER ('DASH FLOAT'), and TIFFANY ('NAKED SLAM')
+# all consistently carry Protection='DASH' or 'NAKED 0*1'/'NAKED 8*9' on
+# every rep across Practices #1/3/4/5/6/7/8, but were never tagged Play=
+# 'MVMT' themselves -- they were falling into the main CONCEPTS section
+# instead, mixed in with real dropback route concepts. SCREEN takes priority
+# over this check (a screen rep's Protection can also start with 'SPRINT',
+# e.g. Practice #7's 'SPRINT RT*LT WATERFALL' -- that's a screen, not a
+# movement pass, and Play=='SCREEN' already unambiguously identifies it).
+def _is_mvmt_rap(r):
+    play=r['Play'].strip().upper()
+    if play=='SCREEN': return False
+    if play in ('MVMT','RAP'): return True
+    prot=r.get('Protection','').strip().upper()
+    return any(tag in prot for tag in ('DASH','SPRINT','NAKED'))
+_concepts_rows=[r for r in pc_pass_rows if r['Play'].strip().upper()!='SCREEN' and not _is_mvmt_rap(r)]
+_mvmt_rap_rows=[r for r in pc_pass_rows if _is_mvmt_rap(r)]
+_screen_rows=[r for r in pc_pass_rows if r['Play'].strip().upper()=='SCREEN']
 _rz_pass_rows=[r for r in pc_pass_rows if is_rz(r)]
 pass_groups={
     'concepts':_concept_list(_concepts_rows), 'concepts_total':pass_block(_concepts_rows),
