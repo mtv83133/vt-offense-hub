@@ -72,7 +72,8 @@ _PROTECTION_ONLY_TAGS = {'6MAN', '5MAN', 'QG'}
 # "SCREEN" row in the QB Profile's By Concept table.
 _SCREEN_NAME_ALIASES = {'JAIL': 'JAIL/PRISON', 'PRISON': 'JAIL/PRISON'}
 # Kept in sync with build_period_variant.py.
-_SCREEN_DIRECTION_WORDS = {'RT','LT','SPRINT'}
+# Also covers "FAKE" (numbered run-fake tag, e.g. "FAKE 6*7 JAIL*PRISON") -- kept in sync.
+_SCREEN_DIRECTION_WORDS = {'RT','LT','SPRINT','FAKE'}
 def screen_name(protection_raw):
     prot = (protection_raw or '').strip().upper()
     if not prot: return None
@@ -90,6 +91,8 @@ def screen_name(protection_raw):
             names.append(_SCREEN_NAME_ALIASES.get(nm, nm))
     names = sorted(set(n for n in names if n))
     return '/'.join(names) if names else None
+# Kept in sync with build_period_variant.py's _RUN_FAMILY_SHORTHAND_TAGS.
+_RUN_FAMILY_SHORTHAND_TAGS = {'WZ', 'TZ', 'GAP', 'MZ'}
 def concept_name(r):
     primary = r['Primary'].strip(); reset = r['Reset'].strip()
     if primary: return primary + (' / ' + reset if reset else '')
@@ -100,6 +103,8 @@ def concept_name(r):
         sn = screen_name(r.get('Protection', ''))
         return sn if sn else 'NEEDS CONCEPT (SCREEN)'
     if play.upper() in _PROTECTION_ONLY_TAGS:
+        return 'NEEDS CONCEPT (' + play.upper() + ')'
+    if play.upper() in _RUN_FAMILY_SHORTHAND_TAGS:
         return 'NEEDS CONCEPT (' + play.upper() + ')'
     return play or '(unknown)'
 
@@ -132,14 +137,16 @@ def is_pass(r):
     # 'NO PLAY' (spelled out, first seen in Fall Camp Practice #4) is the
     # same "No Play" concept as 'NP', just a different export spelling --
     # kept in sync with build_period_variant.py's row-drop filter.
-    if r['pff_RUNPASS'].strip().upper() in ('PEN', 'NP', 'NO PLAY'): return False
+    rp = r['pff_RUNPASS'].strip().upper()
+    if rp in ('PEN', 'NP', 'NO PLAY'): return False
+    # Practice #8: pff_RUNPASS's explicit R/P tag now takes priority over
+    # Run Family -- a charted Run Family with a real pass result (RPO throw,
+    # e.g. GERBIL/MEXICO) counts as a pass attempt, kept in sync with
+    # build_period_variant.py's is_run()/is_pass(). Run Family is only a
+    # fallback classifier when pff_RUNPASS is blank/SACK/other.
+    if rp == 'R': return False
+    if rp == 'P': return True
     if r['Run Family'].strip() != '': return False
-    # Run Family charting-gap fallback (Fall Camp Practice #5 had it blank
-    # for every row) -- kept in sync with build_period_variant.py's
-    # is_run()/is_pass(): trust pff_RUNPASS=='R' over a blank Run Family
-    # rather than miscounting a designed run as a pass attempt in the QB
-    # profile's By Concept table.
-    if r['pff_RUNPASS'].strip().upper() == 'R': return False
     return True
 def is_eff(r): return r['Efficient'].strip() == 'Y'
 

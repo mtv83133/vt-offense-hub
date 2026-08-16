@@ -107,9 +107,23 @@ def is_expl(r): return r['EXPLOSIVE'].strip()=='Y'
 # still counts correctly toward n_run/n_pass via this pff_RUNPASS fallback,
 # but won't appear in the Run Family/Scheme breakdown table -- flag that
 # specific gap to Matt rather than guessing a family for it.
+# Fall Camp Practice #8 changed the priority order here: a few rows have a
+# charted Run Family (a genuine run scheme called) AND a real pass result
+# (pff_RUNPASS='P', an RPO throw -- e.g. #30 GERBIL complete for 16, #47
+# MEXICO a drop). The OLD priority (Run Family non-blank always wins) would
+# classify these as pure runs, silently dropping a real completion/
+# incompletion/drop out of every QB passing stat and the Pass Concepts
+# table. Matt confirmed directly: these should count as pass attempts, the
+# same RPO treatment as CYCLONE/KOBE/HEDGEHOG/MARKER, with the charted Run
+# Family still feeding the Run Family breakdown's run_sub/pass_sub split
+# (see the fam_rows comment below). So pff_RUNPASS's explicit R/P tag now
+# takes priority over Run Family; Run Family is only a fallback classifier
+# for the rare row where pff_RUNPASS is blank/SACK/other.
 def is_run(r):
-    if r['Run Family'].strip()!='': return True
-    return r['pff_RUNPASS'].strip().upper()=='R'
+    rp=r['pff_RUNPASS'].strip().upper()
+    if rp=='R': return True
+    if rp=='P': return False
+    return r['Run Family'].strip()!=''
 def is_pass(r): return not is_run(r)
 # NOTE: an earlier version of this file forced CYCLONE/KOBE/HEDGEHOG to
 # always be is_run_sub=True/is_pass_sub=False (never splitting a PASS
@@ -218,8 +232,11 @@ _SCREEN_NAME_ALIASES={'JAIL':'JAIL/PRISON','PRISON':'JAIL/PRISON'}
 # Practice #7 -- confirmed against that rep's full Play Call text, which
 # literally read "...Y-WATERFALL SCREEN", i.e. WATERFALL is the real name and
 # "SPRINT RT"/"LT" are just protection/motion-direction tags, same role as
-# the NN*NN numeric prefix). Stripped the same way numeric tokens are.
-_SCREEN_DIRECTION_WORDS={'RT','LT','SPRINT'}
+# the NN*NN numeric prefix). Also covers "FAKE" (e.g. "FAKE 6*7 JAIL*PRISON",
+# first seen Fall Camp Practice #8 -- "FAKE 6" is a numbered run-fake tag,
+# confirmed against that rep's Play Call text "...FAKE 6 F-JAIL X-SMOKE",
+# not part of the screen's name). Stripped the same way numeric tokens are.
+_SCREEN_DIRECTION_WORDS={'RT','LT','SPRINT','FAKE'}
 def screen_name(protection_raw):
     prot=(protection_raw or '').strip().upper()
     if not prot: return None
@@ -238,6 +255,15 @@ def screen_name(protection_raw):
             names.append(_SCREEN_NAME_ALIASES.get(nm, nm))
     names=sorted(set(n for n in names if n))
     return '/'.join(names) if names else None
+# Generic run-family shorthand (WZ/TZ/GAP/MZ) restating the Run Family
+# column in the Play column -- same category as the WARP_EXCLUDE run-side
+# entries, never a real concept name. Only reachable by concept_name() now
+# that Practice #8's is_run()/is_pass() priority change lets a Run-Family-
+# charted-but-actually-thrown rep flow into pass_rows -- previously these
+# never reached concept_name() at all since they were always classified as
+# runs. Flagged the same "NEEDS CONCEPT" way as 6MAN/5MAN/QG rather than
+# showing the bare family shorthand as if it were a real pass concept.
+_RUN_FAMILY_SHORTHAND_TAGS={'WZ','TZ','GAP','MZ'}
 def concept_name(r):
     primary=r['Primary'].strip(); reset=r['Reset'].strip()
     if primary: return primary+(' / '+reset if reset else '')
@@ -248,6 +274,8 @@ def concept_name(r):
         sn=screen_name(r.get('Protection',''))
         return sn if sn else 'NEEDS CONCEPT (SCREEN)'
     if play.upper() in _PROTECTION_ONLY_TAGS:
+        return 'NEEDS CONCEPT ('+play.upper()+')'
+    if play.upper() in _RUN_FAMILY_SHORTHAND_TAGS:
         return 'NEEDS CONCEPT ('+play.upper()+')'
     return play or '(unknown)'
 
@@ -327,15 +355,21 @@ def run_family_of(r):
 
 run_rows=[r for r in rows if is_run(r)]
 pass_rows=[r for r in rows if is_pass(r)]
-# Restrict to actual RUN reps (is_run(r)) even though run_family_of() can
-# resolve a family from RunScheme alone -- a couple of Practice #5 rows
-# have BOTH a RunScheme value charted AND a real pass result (an RPO-style
-# rep where the scheme was called but the ball was thrown), and those must
-# stay out of the Run Family/Scheme breakdown table the same way they
-# always have (that table is runs only) -- confirmed 3 such rows (#45, #53,
-# #60, all pff_RUNPASS='P' with a populated RunScheme) would otherwise have
-# been double-counted into both n_pass and a run family bucket.
-fam_rows=[r for r in rows if is_run(r) and run_family_of(r)]
+# CHANGED Practice #8: no longer gated on is_run(r). Originally restricted to
+# actual RUN reps even though run_family_of() can resolve a family from
+# RunScheme/Run Family alone, specifically to keep Practice #5's RPO-style
+# rows (RunScheme charted + real pass result) out of this table. Matt has
+# since confirmed the opposite preference for this exact pattern (see the
+# is_run()/is_pass() comment above): a rep with a real charted Run Family
+# AND a real pass result should still show up here, under its family, with
+# the normal run_sub/pass_sub split below -- same "RPO gets a run/pass
+# sub-breakdown" treatment as WARP Plays already gives named RPO calls. So
+# fam_rows now includes ANY row with a resolved family regardless of
+# is_run()/is_pass() classification; the is_run_sub/is_pass_sub split just
+# below already handles keeping run vs. pass reps correctly separated
+# within each family's numbers -- nothing here inflates n_run/n_pass
+# (those come from run_rows/pass_rows above, unaffected by this table).
+fam_rows=[r for r in rows if run_family_of(r)]
 n=len(rows); n_run=len(run_rows); n_pass=len(pass_rows)
 
 fam_map={}
@@ -376,7 +410,11 @@ rz_rows=[r for r in pass_rows if is_rz(r)]
 # one of these reps still counts as a real pass attempt for those. If a
 # new RPO-style run play with a pass option shows up, don't guess -- ask
 # before adding it here.
-RPO_RUN_PLAYS={'CYCLONE','KOBE','HEDGEHOG','MARKER'}
+# GERBIL/MEXICO added Fall Camp Practice #8 -- confirmed with Matt (see the
+# is_run()/is_pass() comment above): same RPO treatment as the original four,
+# a real named play whose pass-look rep should count as a pass attempt
+# everywhere but not show up as its own fake "concept" row on Pass Concepts.
+RPO_RUN_PLAYS={'CYCLONE','KOBE','HEDGEHOG','MARKER','GERBIL','MEXICO'}
 pc_pass_rows=[r for r in pass_rows if r['Play'].strip().upper() not in RPO_RUN_PLAYS]
 
 gm_all={}

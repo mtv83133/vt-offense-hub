@@ -94,7 +94,8 @@ def route_block(items):
 # Protection value that isn't preserved in the aggregated stats.
 _SCREEN_NAME_ALIASES={'JAIL':'JAIL/PRISON','PRISON':'JAIL/PRISON'}
 # Kept in sync with build_period_variant.py.
-_SCREEN_DIRECTION_WORDS={'RT','LT','SPRINT'}
+# Also covers "FAKE" (numbered run-fake tag, e.g. "FAKE 6*7 JAIL*PRISON") -- kept in sync.
+_SCREEN_DIRECTION_WORDS={'RT','LT','SPRINT','FAKE'}
 def screen_name(protection_raw):
     prot=(protection_raw or '').strip().upper()
     if not prot: return None
