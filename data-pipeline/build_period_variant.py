@@ -521,15 +521,28 @@ _screen_rows=[r for r in pc_pass_rows if r['Play'].strip().upper()=='SCREEN']
 # pc_pass_rows -- Matt confirmed (twice) that ANY pass rep inside the +12
 # belongs in this section regardless of whether it's a normal dropback
 # concept, a WARP-named call with no resolved Primary/Full Concept (falls
-# back to the bare Play name via concept_name()), or an RPO play that's
-# otherwise excluded from the main CONCEPTS/MVMT-RAP/SCREEN buckets
-# (RPO_RUN_PLAYS/RPO_CONCEPT_NAMES). RZ PASS is a genuinely overlapping
-# view across field position, not a 4th mutually-exclusive bucket -- using
-# pc_pass_rows here was silently dropping red-zone RPO throws (e.g. a
-# red-zone GLANCE/MARKER/KOBE completion) from this section even though
-# the Overview tab's own RZ stat card (rz_rows, above) already correctly
-# counts them. Do not change this back to pc_pass_rows.
-_rz_pass_rows=[r for r in pass_rows if is_rz(r)]
+# back to the bare Play name via concept_name()), or a named RPO play
+# that's otherwise excluded from the main CONCEPTS/MVMT-RAP/SCREEN buckets
+# (RPO_RUN_PLAYS -- a real coded/WARP call like CYCLONE/KOBE/HEDGEHOG with
+# its own resolved Primary/Reset concept). RZ PASS is a genuinely
+# overlapping view across field position, not a 4th mutually-exclusive
+# bucket -- using pc_pass_rows here was silently dropping red-zone RPO
+# throws (e.g. a red-zone MARKER/KOBE completion) from this section even
+# though the Overview tab's own RZ stat card (rz_rows, above) already
+# correctly counts them. Do not change this back to pc_pass_rows.
+#
+# EXCEPTION: RPO_CONCEPT_NAMES (GLANCE) is still excluded here, unlike
+# RPO_RUN_PLAYS. Matt drew a distinction (2026-08-16): GLANCE isn't a real
+# coded play or a resolved concept, it's just a route tag ("X-GLANCE")
+# noted on a generic run-family shorthand call (Play='MZ') -- "it is an
+# rpo tag on the run play," not a concept or play in its own right. His
+# final instruction: an RPO tag like this should still show in the QB
+# Profile's By Concept table (build_qb_grades.py doesn't filter it, kept
+# that way on purpose), but should NOT appear anywhere in "the pass
+# section" -- the whole team-level Pass Concepts tab, RZ PASS included.
+# A real named/coded RPO play (RPO_RUN_PLAYS) is NOT the same category and
+# stays included here -- only tag-based RPO_CONCEPT_NAMES entries are cut.
+_rz_pass_rows=[r for r in pass_rows if is_rz(r) and concept_name(r) not in RPO_CONCEPT_NAMES]
 pass_groups={
     'concepts':_concept_list(_concepts_rows), 'concepts_total':pass_block(_concepts_rows),
     'mvmt_rap':_concept_list(_mvmt_rap_rows), 'mvmt_rap_total':pass_block(_mvmt_rap_rows),
