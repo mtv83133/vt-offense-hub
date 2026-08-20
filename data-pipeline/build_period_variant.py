@@ -219,7 +219,21 @@ def pass_block(items):
 # placeholder instead of silently using the bare protection tag, and
 # validate_self_scout.py hard-warns whenever this placeholder shows up so it
 # can't ship unnoticed again -- see that script's NEEDS_CONCEPT check.
-_PROTECTION_ONLY_TAGS={'6MAN','5MAN','QG'}
+# MVMT/RAP added 2026-08-19 after the same bug class recurred: Practice #5
+# row #206 (Play='RAP', Protection='FAKE 6*7 MACHO TOSS', PlayCall='W60
+# SLEAK RT X-IN FAKE 7 MACHO TOSS TOPPER F-FIT') had blank Primary/Reset/
+# Full Concept, so it fell through to the bare literal "RAP" as if that
+# were a real standalone concept -- caught by Matt spotting a "RAP" row in
+# the MVMT/RAP Pass Concepts section. Confirmed the real concept via an
+# IDENTICAL Play Call elsewhere the same day (row #250, same date, Full
+# Concept='TOPPER FIT' correctly charted) and patched that one row
+# directly in the corrected master CSV. Adding MVMT/RAP here is the
+# defensive fix so a FUTURE blank-concept MVMT/RAP row flags NEEDS CONCEPT
+# instead of silently repeating this. Safe to add: `_is_mvmt_rap()` below
+# sections a row into the MVMT/RAP Pass Concepts bucket by checking
+# `r['Play']` directly, not concept_name()'s output, so this only changes
+# what NAME shows for a blank-concept row, not which section it lands in.
+_PROTECTION_ONLY_TAGS={'6MAN','5MAN','QG','MVMT','RAP'}
 # Screen plays are charted with Play='SCREEN' (a generic category tag, same
 # idea as MVMT/RAP) and the ACTUAL screen call name lives in the Protection
 # column instead -- e.g. Protection='50*51 INMATE' or '58*59 HANDCUFF' (the
@@ -272,7 +286,21 @@ def screen_name(protection_raw):
 # charted-but-actually-thrown rep flow into pass_rows -- previously these
 # never reached concept_name() at all since they were always classified as
 # runs. Flagged the same "NEEDS CONCEPT" way as 6MAN/5MAN/QG rather than
-# showing the bare family shorthand as if it were a real pass concept.
+# showing the bare family shorthand as if it were a real pass concept --
+# UNLESS RunScheme itself is populated (e.g. '4*5 FAB'), in which case that
+# IS the real name of the call and gets used directly instead of flagging.
+# Confirmed with Matt (Practice #10, row #52, Play='MZ', RunScheme='4*5 FAB',
+# Play Call '...F-FAB Z-HARP...', a scramble): "NO CONCEPT JUST 4*5 FAB
+# BECAUSE IT IS A RUN WITH RUN PASS SUB SECTIONS IF WE EVER HAVE A PASS
+# ATTEMPT ON THAT PLAY" -- i.e. this isn't a named pass concept or RPO tag,
+# it's literally the numbered run scheme itself having a pass attempt on it.
+# Only reachable when Primary/Reset/Full Concept are ALL blank (checked
+# above) AND RunScheme is blank too -- a genuinely unidentifiable rep still
+# gets flagged so it doesn't silently disappear. See is_run_scheme_rpo()
+# below for the matching Pass Concepts/RZ PASS exclusion (same RPO
+# treatment as RPO_RUN_PLAYS/RPO_CONCEPT_NAMES -- counts as a real pass
+# attempt everywhere else, shows in Run Family breakdown's pass_sub and the
+# QB Profile's By Concept table, just not as a standalone Pass Concepts row).
 _RUN_FAMILY_SHORTHAND_TAGS={'WZ','TZ','GAP','MZ'}
 def concept_name(r):
     primary=r['Primary'].strip(); reset=r['Reset'].strip()
@@ -286,8 +314,21 @@ def concept_name(r):
     if play.upper() in _PROTECTION_ONLY_TAGS:
         return 'NEEDS CONCEPT ('+play.upper()+')'
     if play.upper() in _RUN_FAMILY_SHORTHAND_TAGS:
+        scheme=r.get('RunScheme','').strip()
+        if scheme: return scheme
         return 'NEEDS CONCEPT ('+play.upper()+')'
     return play or '(unknown)'
+# See concept_name() comment above -- a run-family-shorthand-tagged rep
+# (WZ/TZ/GAP/MZ) with no distinct named concept resolves to the bare
+# RunScheme value itself. That's the numbered run call, not a real pass
+# concept, so it gets the same treatment as RPO_RUN_PLAYS/RPO_CONCEPT_NAMES:
+# excluded from the standalone Pass Concepts table and RZ PASS section, but
+# still counted as a real pass attempt in QB/receiver stats, the Run Family
+# breakdown's pass_sub, and the QB Profile's By Concept table.
+def is_run_scheme_rpo(r):
+    if r['Play'].strip().upper() not in _RUN_FAMILY_SHORTHAND_TAGS: return False
+    if r['Primary'].strip() or r['Reset'].strip() or r['Full Concept'].strip(): return False
+    return bool(r.get('RunScheme','').strip())
 
 ROSTER = {
  12:('K. Ryan','QB'),17:('Grunkemeyer','QB'),14:('T. Huhn','QB'),22:('B. Baker','QB'),
@@ -424,7 +465,27 @@ rz_rows=[r for r in pass_rows if is_rz(r)]
 # is_run()/is_pass() comment above): same RPO treatment as the original four,
 # a real named play whose pass-look rep should count as a pass attempt
 # everywhere but not show up as its own fake "concept" row on Pass Concepts.
-RPO_RUN_PLAYS={'CYCLONE','KOBE','HEDGEHOG','MARKER','GERBIL','MEXICO'}
+# FREIBURG added Fall Camp Practice #10 -- confirmed with Matt: same RPO
+# treatment as the others, a real named/coded run play (RunScheme '28*29
+# KEY', WIDE ZONE family) that had one pass-look rep (fall_10 row #26, QB22)
+# show up as its own bare "FREIBURG" row in Pass Concepts. Matt: "FRIEBURG
+# IS NOT A PASS CONCEPT IT IS A WARP PLAY & IS A RUN PLAY WITH AN RPO TAG."
+# MOOSE/BLOODHOUND/KENYA added 2026-08-19: found while investigating Matt's
+# "needs more reps in needs attention -- shows plays we have run a decent
+# amount" report. Full-dataset pff_RUNPASS tallies confirmed the same
+# profile as the plays above -- overwhelmingly run, with exactly one blank-
+# concept pass-look rep each: MOOSE (5 R / 1 P), BLOODHOUND (6 R / 1 P),
+# KENYA (18 R / 1 P / 1 PEN). Each was showing as BOTH a real WARP Plays
+# entry (true n) AND a spurious n=1 Pass Concepts entry under the bare play
+# name, which is exactly what made the Needs Attention low-sample flag
+# claim e.g. "KENYA: 1 rep" when it's actually been run 20 times.
+# DESTROYER added 2026-08-20 (Practice #12): same audit as MOOSE/BLOODHOUND/
+# KENYA above -- full-camp pff_RUNPASS tally is 11 R / 1 P / 1 PEN, the one
+# pass rep (fall_12 row #24) has blank Primary/Reset/Full Concept and was
+# showing as a spurious n=1 Pass Concepts entry alongside the real n=11
+# WARP entry.
+RPO_RUN_PLAYS={'CYCLONE','KOBE','HEDGEHOG','MARKER','GERBIL','MEXICO','FREIBURG',
+               'MOOSE','BLOODHOUND','KENYA','DESTROYER'}
 # Same RPO exclusion as RPO_RUN_PLAYS above, but keyed on the RESOLVED
 # concept name instead of the Play column -- for an RPO whose Play is a
 # generic run-family shorthand (WZ/TZ/GAP/MZ, not a distinct coded call),
@@ -442,7 +503,8 @@ RPO_RUN_PLAYS={'CYCLONE','KOBE','HEDGEHOG','MARKER','GERBIL','MEXICO'}
 # team-level Pass Concepts table itself.
 RPO_CONCEPT_NAMES={'GLANCE'}
 pc_pass_rows=[r for r in pass_rows if r['Play'].strip().upper() not in RPO_RUN_PLAYS
-              and concept_name(r) not in RPO_CONCEPT_NAMES]
+              and concept_name(r) not in RPO_CONCEPT_NAMES
+              and not is_run_scheme_rpo(r)]
 
 gm_all={}
 for r in pc_pass_rows: gm_all.setdefault(concept_name(r), []).append(r)
@@ -542,7 +604,11 @@ _screen_rows=[r for r in pc_pass_rows if r['Play'].strip().upper()=='SCREEN']
 # section" -- the whole team-level Pass Concepts tab, RZ PASS included.
 # A real named/coded RPO play (RPO_RUN_PLAYS) is NOT the same category and
 # stays included here -- only tag-based RPO_CONCEPT_NAMES entries are cut.
-_rz_pass_rows=[r for r in pass_rows if is_rz(r) and concept_name(r) not in RPO_CONCEPT_NAMES]
+# Same exclusion extended to is_run_scheme_rpo() (Practice #10, "4*5 FAB"
+# pattern) -- a bare RunScheme-named run call is even more clearly a run,
+# not a pass concept, so it gets cut from RZ PASS same as GLANCE.
+_rz_pass_rows=[r for r in pass_rows if is_rz(r) and concept_name(r) not in RPO_CONCEPT_NAMES
+               and not is_run_scheme_rpo(r)]
 pass_groups={
     'concepts':_concept_list(_concepts_rows), 'concepts_total':pass_block(_concepts_rows),
     'mvmt_rap':_concept_list(_mvmt_rap_rows), 'mvmt_rap_total':pass_block(_mvmt_rap_rows),
