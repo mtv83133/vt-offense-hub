@@ -39,9 +39,21 @@ EXCLUDE_FROM_ND_CD = {'2 EOG', '2 EOH', '4'}
 GARBAGE = 'G'
 
 def load(path, delim):
+    """Load rows, dropping blank-Name rows and deduping on Name (keep first occurrence).
+    Some opponent exports repeat the exact same play under multiple '#' row-sequence values
+    (confirmed with Matt on VMI's 2026-08-23 upload: 'there are plays that are included
+    multiple times, only count it once, do not double count anything') -- Name is the
+    reliable per-play identifier (it embeds the source game + play number), so any row
+    sharing an already-seen Name is a duplicate of the same play, not a new one."""
     with open(path, newline='', encoding='utf-8-sig') as f:
         r = csv.DictReader(f, delimiter=delim)
-        return [row for row in r if (row.get('Name') or '').strip()]
+        rows = [row for row in r if (row.get('Name') or '').strip()]
+    seen = {}
+    for row in rows:
+        key = row['Name'].strip()
+        if key not in seen:
+            seen[key] = row
+    return list(seen.values())
 
 def norm(v):
     return (v or '').strip()
@@ -541,16 +553,12 @@ def compute_bible(rows):
         } for f, fg in sorted(fgroups.items(), key=lambda kv: -len(kv[1]))]
         coverage_by_pers_by_front.append({"pers": pers, "n": fn, "fronts": fronts})
 
-    # ---- 10. Coverage to Formation Group (FORMATION GROUP OFF, e.g. '3X1 11P' -> '3X1') ----
-    _FORM_GROUP_RE = re.compile(r'^(\dX\d)')
+    # ---- 10. Coverage to Formation Group (FinalForm -- named formation, e.g. 'TRIPS',
+    # 'DUO', 'DOS' -- per Matt's 2026-08-23 direction, replacing the old FORMATION GROUP
+    # OFF 3X1/2X2-style generic bucket. Used as-is/verbatim, no regex bucketing -- FORMATION
+    # GROUP OFF itself is left untouched everywhere else in this file.) ----
     def form_group_bucket(r):
-        v = upper(r.get('FORMATION GROUP OFF'))
-        if not v:
-            return ''
-        m = _FORM_GROUP_RE.match(v)
-        if m:
-            return m.group(1)
-        return v.split(' ')[0]
+        return upper(r.get('FinalForm'))
     form_groups = defaultdict(list)
     for r in rows:
         f = form_group_bucket(r)

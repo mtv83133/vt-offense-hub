@@ -520,89 +520,99 @@ def build_coverage_panel_with_splits(bucket, label, id_prefix, canvas_prefix, sp
         </div>
       </div>'''
 
-def bib_pct_class(pct):
-    """Conditional-formatting heat band for a Bible-tab percentage: mirrors the
-    color-scale highlighting on the staff's original spreadsheet -- the higher the
-    concentration, the hotter the color, so tendencies jump out at a glance."""
-    if pct >= 40:
-        return 'p-hot'
-    if pct >= 25:
-        return 'p-warm'
-    if pct >= 15:
-        return 'p-mild'
-    return 'p-cool'
+_BIB_BAD = (229, 72, 77)
+_BIB_WARN = (232, 163, 61)
+_BIB_GOOD = (46, 158, 79)
 
-def bible_leaf_html(entries):
-    """Innermost Cov-Fam/Front-Fam leaf rows: [{label,count,pct}] -> compact list."""
+def bib_heat_style(pct, group_vals):
+    """Relative (Excel-style 3-color-scale) heat fill for a Bible-tab leaf percentage,
+    scoped to the local group it's part of -- matches the staff's original spreadsheet
+    cheat sheet, where the highest share in a given breakdown reads green and the
+    lowest reads red, rather than a fixed absolute threshold."""
+    vals = [v for v in group_vals if v is not None]
+    if pct is None or not vals:
+        return ''
+    lo, hi = min(vals), max(vals)
+    t = 0.5 if hi <= lo else (pct - lo) / (hi - lo)
+    if t < 0.5:
+        a, b, f = _BIB_BAD, _BIB_WARN, t * 2
+    else:
+        a, b, f = _BIB_WARN, _BIB_GOOD, (t - 0.5) * 2
+    r = round(a[0] + (b[0] - a[0]) * f)
+    g = round(a[1] + (b[1] - a[1]) * f)
+    bl = round(a[2] + (b[2] - a[2]) * f)
+    return f'background:rgba({r},{g},{bl},.6);color:#fff'
+
+def bible_leaf_rows(entries, indent):
+    """Innermost Cov-Fam/Front-Fam leaf rows: [{label,count,pct}] -> <tr> rows, heat-scaled
+    relative to this list only (Overall Coverage flat list, or one group's own leaves)."""
     if not entries:
-        return '<div class="bib-empty">No data</div>'
+        return '<tr><td colspan="3" class="bib-empty2">No data</td></tr>'
+    vals = [e["pct"] for e in entries]
+    cls = f'bib-l{indent}'
     return "".join(
-        f'<div class="bib-row bib-leaf"><span class="bib-lbl">{esc(e["label"])}</span>'
-        f'<span class="bib-n">{e["count"]}x</span>'
-        f'<span class="bib-pct {bib_pct_class(e["pct"])}">{e["pct"]}%</span></div>'
+        f'<tr class="{cls}"><td>{esc(e["label"])}</td><td class="bib-c">{e["count"]}x</td>'
+        f'<td class="bib-c" style="{bib_heat_style(e["pct"], vals)}">{e["pct"]}%</td></tr>'
         for e in entries
     )
 
-def bible_group_html(groups, label_key, inner_key):
+def bible_group_rows(groups, label_key, inner_key):
     """One level of nesting: each group has [label_key], 'n', optional 'pct', and a leaf
-    list at [inner_key]. Renders a bold header row per group + its indented leaf rows."""
+    list at [inner_key]. Header row is plain/bold (not heat-colored); its leaves are
+    heat-scaled among themselves."""
     if not groups:
-        return '<div class="bib-empty">No data</div>'
+        return '<tr><td colspan="3" class="bib-empty2">No data</td></tr>'
     out = []
     for g in groups:
         pct_val = g.get("pct")
         pct_str = f'{pct_val}%' if pct_val is not None else ""
-        pct_cls = bib_pct_class(pct_val) if pct_val is not None else ""
         out.append(
-            f'<div class="bib-grp"><div class="bib-row bib-hdr">'
-            f'<span class="bib-lbl">{esc(str(g[label_key]))}</span>'
-            f'<span class="bib-n">{g["n"]}x</span><span class="bib-pct {pct_cls}">{pct_str}</span></div>'
+            f'<tr class="bib-g"><td>{esc(str(g[label_key]))}</td>'
+            f'<td class="bib-c">{g["n"]}x</td><td class="bib-c">{pct_str}</td></tr>'
         )
-        out.append(bible_leaf_html(g[inner_key]))
-        out.append('</div>')
+        out.append(bible_leaf_rows(g[inner_key], 1))
     return "".join(out)
 
-def bible_pers_by_front_html(groups):
-    """Triple nest: PERS(O) -> Front Family -> Cov Fam."""
+def bible_pers_by_front_rows(groups):
+    """Triple nest: PERS(O) -> Front Family -> Cov Fam. Both header levels stay plain;
+    only the innermost Cov Fam leaves get heat-scaled, scoped to their own front."""
     if not groups:
-        return '<div class="bib-empty">No data</div>'
+        return '<tr><td colspan="3" class="bib-empty2">No data</td></tr>'
     out = []
     for g in groups:
-        out.append(
-            f'<div class="bib-grp"><div class="bib-row bib-hdr">'
-            f'<span class="bib-lbl">{esc(g["pers"])}</span><span class="bib-n">{g["n"]}x</span></div>'
-        )
+        out.append(f'<tr class="bib-g"><td>{esc(g["pers"])}</td><td class="bib-c">{g["n"]}x</td><td class="bib-c"></td></tr>')
         for f in g["fronts"]:
             out.append(
-                f'<div class="bib-row bib-sub"><span class="bib-lbl">{esc(f["front"])}</span>'
-                f'<span class="bib-n">{f["n"]}x</span>'
-                f'<span class="bib-pct {bib_pct_class(f["pct"])}">{f["pct"]}%</span></div>'
+                f'<tr class="bib-g2"><td>{esc(f["front"])}</td>'
+                f'<td class="bib-c">{f["n"]}x</td><td class="bib-c">{f["pct"]}%</td></tr>'
             )
-            out.append(bible_leaf_html(f["coverage"]))
-        out.append('</div>')
+            out.append(bible_leaf_rows(f["coverage"], 2))
     return "".join(out)
 
-def bible_card(title, body_html, span=False):
-    span_attr = ' style="grid-column:1/-1"' if span else ""
-    return f'<div class="card bib-card"{span_attr}><div class="card-hd">{esc(title)}</div><div class="bib-body">{body_html}</div></div>'
+def bible_card(title, rows_html):
+    return (
+        f'<div class="card bib-card2"><div class="card-hd">{esc(title)}</div>'
+        f'<table class="bib-tbl"><thead><tr><th>Label</th><th class="bib-c">Cnt</th>'
+        f'<th class="bib-c">%</th></tr></thead><tbody>{rows_html}</tbody></table></div>'
+    )
 
 def build_bible_section(bible):
     """'Bible' tab: Normal-Downs coverage cross-tab reference (matches the staff's own
-    NDD Bible cheat sheet). bible = compute_situational.py's compute_bible() output,
-    or None if there are no Normal Downs rows for this opponent."""
+    NDD Bible cheat sheet, dense-spreadsheet style). bible = compute_situational.py's
+    compute_bible() output, or None if there are no Normal Downs rows for this opponent."""
     if not bible:
         return '''<div class="callout info"><strong>No Normal Downs data available for this opponent yet.</strong> This section will populate automatically once a CSV is charted.</div>'''
 
     n = bible["n"]
     cards = []
-    cards.append(bible_card("Overall Coverage", bible_leaf_html(bible["overallCoverage"])))
-    cards.append(bible_card("Coverage by Off Personnel", bible_group_html(bible["coverageByOffPers"], "pers", "coverage")))
-    cards.append(bible_card("Fronts by Off Personnel", bible_group_html(bible["frontByOffPers"], "pers", "fronts")))
+    cards.append(bible_card("Overall Coverage", bible_leaf_rows(bible["overallCoverage"], 0)))
+    cards.append(bible_card("Coverage by Off Personnel", bible_group_rows(bible["coverageByOffPers"], "pers", "coverage")))
+    cards.append(bible_card("Fronts by Off Personnel", bible_group_rows(bible["frontByOffPers"], "pers", "fronts")))
 
     if bible["fibN"]:
-        cards.append(bible_card(f'Coverage to FIB ({bible["fibN"]}x)', bible_leaf_html(bible["coverageToFib"])))
+        cards.append(bible_card(f'Coverage to FIB ({bible["fibN"]}x)', bible_leaf_rows(bible["coverageToFib"], 0)))
     if bible["warpN"]:
-        cards.append(bible_card(f'Coverage to Tempo — WARP ({bible["warpN"]}x)', bible_group_html(bible["coverageToTempo"], "pers", "coverage")))
+        cards.append(bible_card(f'Coverage to Tempo — WARP ({bible["warpN"]}x)', bible_group_rows(bible["coverageToTempo"], "pers", "coverage")))
 
     if bible["coverageByBucket"]:
         cb = bible["coverageByBucket"]
@@ -610,15 +620,15 @@ def build_bible_section(bible):
             {"label": f'NICKEL ({cb["nickel"]["n"]} of {cb["total"]})', "n": cb["nickel"]["n"], "pct": cb["nickel"]["pct"], "coverage": cb["nickel"]["coverage"]},
             {"label": f'BASE ({cb["base"]["n"]} of {cb["total"]})', "n": cb["base"]["n"], "pct": cb["base"]["pct"], "coverage": cb["base"]["coverage"]},
         ]
-        cards.append(bible_card("Coverage by Big Bucket Defensive Personnel", bible_group_html(bucket_groups, "label", "coverage")))
+        cards.append(bible_card("Coverage by Big Bucket Defensive Personnel", bible_group_rows(bucket_groups, "label", "coverage")))
 
     if bible["oVsD"]:
-        cards.append(bible_card("O Personnel vs D Personnel", bible_group_html(bible["oVsD"], "pers", "defpers")))
+        cards.append(bible_card("O Personnel vs D Personnel", bible_group_rows(bible["oVsD"], "pers", "defpers")))
     if bible["coverageByDefPers"]:
-        cards.append(bible_card("Coverage by Def Personnel", bible_group_html(bible["coverageByDefPers"], "defpers", "coverage")))
+        cards.append(bible_card("Coverage by Def Personnel", bible_group_rows(bible["coverageByDefPers"], "defpers", "coverage")))
 
-    cards.append(bible_card("Coverage by Pers by Front", bible_pers_by_front_html(bible["coverageByPersByFront"]), span=True))
-    cards.append(bible_card("Coverage to Formation Group", bible_group_html(bible["coverageToFormFamily"], "form", "coverage"), span=True))
+    cards.append(bible_card("Coverage by Pers by Front", bible_pers_by_front_rows(bible["coverageByPersByFront"])))
+    cards.append(bible_card("Coverage to Formation Group", bible_group_rows(bible["coverageToFormFamily"], "form", "coverage")))
 
     notes_card = '''<div class="card bib-card" style="grid-column:1/-1">
         <div class="card-hd">Notes</div>
@@ -626,7 +636,7 @@ def build_bible_section(bible):
       </div>'''
 
     return f'''<div class="print-label">Normal Downs Bible — {n} plays</div>
-      <div class="g2 bib-grid">
+      <div class="bib-cols">
         {"".join(cards)}
       </div>
       {notes_card}'''

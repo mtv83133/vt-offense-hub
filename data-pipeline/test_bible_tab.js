@@ -74,15 +74,17 @@ async function main() {
   assert(bodyBible.innerHTML.includes('Coverage by Big Bucket Defensive Personnel'), 'ODU: Big Bucket (Base/Nickel) card present');
   assert(!bodyBible.innerHTML.includes('No Normal Downs data available'), 'ODU is NOT the empty state');
 
-  // VMI: no pff_DEFPERSONNEL -> D-personnel-dependent cards must be OMITTED (not blank/broken),
-  // but the rest of the cross-tab (which doesn't need D personnel) should still render.
+  // VMI: as of 2026-08-23, the raw CSV was reuploaded with pff_DEFPERSONNEL and FinalForm
+  // populated, so the full card set now renders (previously these were correctly omitted
+  // when the source data lacked pff_DEFPERSONNEL -- that gap is now closed, not a regression).
   window.selectTeam('VMI');
   await wait(80);
   assert(bodyBible.innerHTML.includes('Overall Coverage'), 'VMI: Overall Coverage still renders (no D-personnel dependency)');
   assert(bodyBible.innerHTML.includes('Coverage by Off Personnel'), 'VMI: Coverage by Off Personnel still renders');
-  assert(!bodyBible.innerHTML.includes('O Personnel vs D Personnel'), 'VMI: O Pers vs D Pers card correctly omitted (no source data)');
-  assert(!bodyBible.innerHTML.includes('Coverage by Big Bucket Defensive Personnel'), 'VMI: Big Bucket card correctly omitted (no source data)');
-  assert(!bodyBible.innerHTML.includes('Coverage by Def Personnel'), 'VMI: Coverage by Def Personnel card correctly omitted');
+  assert(bodyBible.innerHTML.includes('O Personnel vs D Personnel'), 'VMI: O Pers vs D Pers card now present (source data has pff_DEFPERSONNEL)');
+  assert(bodyBible.innerHTML.includes('Coverage by Big Bucket Defensive Personnel'), 'VMI: Big Bucket card now present (source data has pff_DEFPERSONNEL)');
+  assert(bodyBible.innerHTML.includes('Coverage by Def Personnel'), 'VMI: Coverage by Def Personnel card now present (source data has pff_DEFPERSONNEL)');
+  assert(bodyBible.innerHTML.includes('Coverage to Formation Group'), 'VMI: Coverage to Formation Group card present (now sourced from FinalForm)');
 
   // Switching back to MARYLAND restores its own full content
   window.selectTeam('MARYLAND');
