@@ -817,6 +817,37 @@ for key, items in sorted(ol_map.items(), key=lambda kv:-len(kv[1])):
     b['plays']=plays
     ol_lineups.append(b)
 
+# ── Script/Callsheet call-frequency breakdown ───────────────────────────
+# Per Matt's 2026-08-25 request: ahead of the first game, he wants a
+# per-practice count of how many times each EXACT play call (huddle call,
+# not the family/concept bucket) was run, its run/pass type, and a hash
+# breakdown. Hash (pff_HASH) is not currently being charted -- 100% blank
+# across all 15 fall camp practices, confirmed directly against the raw
+# CSVs -- so 'hash' is left as a dict of L/M/R/blank counts that will
+# simply show all-blank until hash actually gets charted (or until a
+# practice script with hash tagged per call gets matched in, a separate
+# feature). Grouped by the same 'Play Call' (fallback 'Play') key already
+# used for skill_lineups/ol_lineups so a single call spoken two different
+# ways doesn't silently fragment.
+call_freq_map = {}
+for r in rows:
+    call = (r['Play Call'].strip() or r['Play'].strip() or '(unknown)')
+    call_freq_map.setdefault(call, []).append(r)
+call_freq = []
+for call, items in sorted(call_freq_map.items(), key=lambda kv: -len(kv[1])):
+    hash_counts = {'L': 0, 'M': 0, 'R': 0, '': 0}
+    for r in items:
+        hv = r.get('pff_HASH', '').strip().upper()[:1]
+        hash_counts[hv if hv in ('L', 'M', 'R') else ''] += 1
+    call_freq.append({
+        'call': call,
+        'type': 'RUN' if is_run(items[0]) else 'PASS',
+        'n': len(items),
+        'avg': avgy(items),
+        'eff': round(pct(sum(1 for r in items if is_eff(r)), len(items))),
+        'hash': hash_counts,
+    })
+
 data = {
     'n':n, 'n_run':n_run, 'n_pass':n_pass, 'avg':overall['avg'], 'eff':overall['eff'],
     'expl':overall['expl'], 'neg':overall['neg'], 'comp':pass_overall['comp'], 'sack_pct':sack_pct,
@@ -829,6 +860,7 @@ data = {
     'procedure_data':procedure_data, 'skill_lineups':skill_lineups, 'ol_lineups':ol_lineups,
     'qbs':qbs, 'rbs':rbs, 'receivers':receivers,
     'pass_groups':pass_groups, 'warp_groups':warp_groups,
+    'call_freq':call_freq,
 }
 with open(os.path.join(out_dir, f'{day_key}_{variant}.json'),'w') as f:
     json.dump(data, f)
