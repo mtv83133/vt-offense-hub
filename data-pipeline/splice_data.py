@@ -109,7 +109,34 @@ def cmd_period(args):
     if not variants:
         raise SystemExit("Pass at least one of --team-json/--skelly-json/--combined-json.")
 
-    days = fd.setdefault('days', [])
+    # ── Week-scoped mode (Season Practices only) ────────────────────────
+    # Added 2026-08-25 for INSEASON_DATA's opponent/game-week grouping:
+    # `INSEASON_DATA.weeks[]` (each `{key,label,opponent,days:[...],
+    # all_variants}`) instead of a flat `days[]` like Fall Camp. Pass
+    # --week-key (and --week-label the first time, to name the opponent)
+    # to target a week; omit both for Fall-Camp-style flat splicing
+    # (unchanged, fully backward compatible).
+    if args.week_key:
+        weeks = fd.setdefault('weeks', [])
+        week = next((w for w in weeks if w.get('key') == args.week_key), None)
+        if week is None:
+            week = {
+                'key': args.week_key,
+                'label': args.week_label or args.week_key,
+                'opponent': args.week_label or args.week_key,
+                'days': [],
+                'all_variants': None,
+            }
+            weeks.append(week)
+            print(f"Added new week '{args.week_key}' ({week['label']})")
+        elif args.week_label:
+            week['label'] = args.week_label
+            week['opponent'] = args.week_label
+        days = week.setdefault('days', [])
+    else:
+        days = fd.setdefault('days', [])
+        week = None
+
     existing = next((d for d in days if d.get('key') == args.day_key), None)
 
     if args.new_day:
@@ -135,13 +162,15 @@ def cmd_period(args):
 
     fd['loaded'] = True
 
+    target = week if week is not None else fd
+    label_for_note = f"week '{args.week_key}'" if week is not None else 'camp'
     if len(days) == 1:
-        # Single-day camp: all_variants is just that day's variants.
-        fd['all_variants'] = days[0]['variants']
+        # Single-day (or single-day-so-far week): all_variants is just that day's variants.
+        target['all_variants'] = days[0]['variants']
     else:
-        print("NOTE: multiple days now present. all_variants was NOT recomputed --")
+        print(f"NOTE: multiple days now present in this {label_for_note}. all_variants was NOT recomputed --")
         print("      this script only auto-merges for the single-day case.")
-        print("      Combine days[*].variants[v] into all_variants[v] by hand")
+        print(f"      Combine days[*].variants[v] into {label_for_note}'s all_variants[v] by hand")
         print("      (weighted merge across days) before shipping, or extend")
         print("      this script with a merge_all_variants() implementation.")
 
@@ -172,6 +201,8 @@ def main():
     pp.add_argument('--team-json')
     pp.add_argument('--skelly-json')
     pp.add_argument('--combined-json')
+    pp.add_argument('--week-key', help='Season Practices (INSEASON_DATA) only: opponent/game-week key, e.g. "vmi". Omit for Fall Camp.')
+    pp.add_argument('--week-label', help='Season Practices only: opponent display label, e.g. "VMI". Only needed the first time a week is created.')
     pp.set_defaults(func=cmd_period)
 
     args = p.parse_args()
