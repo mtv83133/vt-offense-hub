@@ -142,11 +142,14 @@ const STAB_MAP = {
   wr: { run: false, nd: ['formations', 'coverage'], cd: ['formations', 'coverage'], rz: true, gl: true },
 };
 
-// ---------- "Personnel info" cards (Fronts/Coverage/Blitz by Personnel) ----------
-// Per Matt's 2026-08-26 direction: pull the "X by Personnel" card straight out of
-// each position's already-curated nd/cd stab content (same source, no new data) so
-// player-view.html can surface it right under "Need to Know" instead of it only
-// living buried inside the collapsed "Full Coach Breakdown" detail section.
+// ---------- "Personnel info" (right under Need to Know) ----------
+// Per Matt's 2026-08-26 direction (revised from the first pass, which pulled
+// the full "X by Personnel" TABLES over -- too much raw data for players):
+// this section should be (1) short bullet-point "key notes" summarizing the
+// same by-personnel numbers as plain sentences instead of tables, plus
+// (2) the box-style ("pcard") visualizations -- Field/Boundary blitz-hash
+// tendency, and the Red Zone stat boxes -- kept exactly as-is, since those
+// are already a compact, scannable format, not a table.
 const PERSONNEL_HEADING = { fronts: 'Fronts by Personnel', coverage: 'Coverage by Personnel', blitz: 'Blitz by Personnel' };
 
 function extractCardByHeading(html, heading) {
@@ -161,21 +164,66 @@ function extractCardByHeading(html, heading) {
   return match ? match.outerHTML : null;
 }
 
+// Grabs the box-style ".pcard" row (e.g. the Field/Boundary blitz-hash boxes,
+// or the Red Zone Blitz Rate / Top Coverage at GL / Top Front at GL / 6-man
+// boxes) -- returns the whole wrapping grid div's outerHTML, or null.
+function extractPcardBoxes(html) {
+  if (!html) return null;
+  const doc = fragDoc(html);
+  const root = doc.getElementById('root');
+  const firstPcard = root.querySelector('.pcard');
+  if (!firstPcard) return null;
+  const wrap = firstPcard.parentElement;
+  return wrap ? wrap.outerHTML : null;
+}
+
+function parseTableRows(cardHtml) {
+  if (!cardHtml) return [];
+  const doc = fragDoc(cardHtml);
+  const root = doc.getElementById('root');
+  return Array.from(root.querySelectorAll('tbody tr')).map(tr =>
+    Array.from(tr.querySelectorAll('td')).map(td => td.textContent.trim())
+  );
+}
+
+// Turns the same per-personnel-group numbers that used to fill a table into
+// short bullet sentences instead.
+function summarizeByPersonnel(cardHtml, kind) {
+  const rows = parseTableRows(cardHtml);
+  if (!rows.length) return [];
+  return rows.map(r => {
+    const [pers, plays, val1, val2] = r;
+    if (kind === 'fronts') return `vs <b>${pers}</b> personnel (${plays} plays): <b>${val1}</b> front, ${val2} of the time`;
+    if (kind === 'coverage') return `vs <b>${pers}</b> personnel (${plays} plays): <b>${val1}</b> coverage, ${val2} of the time`;
+    if (kind === 'blitz') return `vs <b>${pers}</b> personnel (${plays} plays): blitzes ${val2} of the time`;
+    return null;
+  }).filter(Boolean);
+}
+
 function buildPersonnelInfo(deepCurated) {
-  const out = {};
+  const notes = {};
   ['nd', 'cd'].forEach(sec => {
     if (!deepCurated[sec]) return;
     Object.keys(PERSONNEL_HEADING).forEach(stabName => {
       const stabHTML = deepCurated[sec][stabName];
       if (!stabHTML) return;
       const card = extractCardByHeading(stabHTML, PERSONNEL_HEADING[stabName]);
-      if (card) {
-        out[sec] = out[sec] || {};
-        out[sec][stabName] = card;
+      if (!card) return;
+      const bullets = summarizeByPersonnel(card, stabName);
+      if (bullets.length) {
+        notes[sec] = notes[sec] || {};
+        notes[sec][stabName] = bullets;
       }
     });
   });
-  return Object.keys(out).length ? out : null;
+
+  const blitzBoxesND = deepCurated.nd && deepCurated.nd.blitz ? extractPcardBoxes(deepCurated.nd.blitz) : null;
+  const blitzBoxesCD = deepCurated.cd && deepCurated.cd.blitz ? extractPcardBoxes(deepCurated.cd.blitz) : null;
+  const rzBoxes = deepCurated.rz ? extractPcardBoxes(deepCurated.rz) : null;
+
+  const hasAnything = Object.keys(notes).length || blitzBoxesND || blitzBoxesCD || rzBoxes;
+  if (!hasAnything) return null;
+  return { notes, blitzBoxesND, blitzBoxesCD, rzBoxes };
 }
 
 // ---------- Matchups (best/toughest/superlatives), filtered per position ----------
