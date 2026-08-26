@@ -663,6 +663,95 @@ def _rz_situational(sub):
         out.append({"label": label, "n": n, "blitzPct": round(blitz_n/n*100) if n else 0})
     return out
 
+def rz_demarcation(rows):
+    """Surfaces the data-driven RZ 'line of demarcation' -- the yard line
+    where the defense's front/coverage/blitz tendencies shift most sharply --
+    as its own finding on the RZ tab. This threshold was already being
+    COMPUTED by find_rz_line_of_demarcation() above, but only ever used as a
+    silent input to find_secondary_breakpoint() (a rarer, conservative
+    finding for a SECOND shift beyond the red zone); the line-of-demarcation
+    yard line itself was never shown on its own. Per Matt's 2026-08-26
+    direction, both the coach's and player's RZ tab should call out this
+    specific yard line explicitly. Returns None if there isn't enough data on
+    both sides of the candidate line to say anything reliable yet.
+
+    2026-08-26 addendum, per Matt's follow-up ("double check ... another yard
+    line ... where the scheme changes significantly"): direct analysis
+    confirmed there is NOT a second, separate breakpoint inside the red
+    zone -- what's actually happening is one continuous, broad tightening
+    effect as the defense nears its own goal line, not two discrete steps.
+    Every yard line from the primary line out to roughly the +15 clears the
+    same strict shift-and-corroboration bar find_secondary_breakpoint() uses,
+    then it fades out smoothly. So the callout should describe a GRADIENT
+    ("tightens progressively inside the +N, sharpest inside the +{lod}"),
+    not imply a single hard on/off switch -- while still naming the +{lod}
+    headline number, which remains the single sharpest point in that curve."""
+    rp_rows = [r for r in rows if is_run_pass(r) and field_pos(r) is not None]
+    if len(rp_rows) < 40:
+        return None
+    lod = find_rz_line_of_demarcation(rp_rows)
+    inside = [r for r in rp_rows if 1 <= field_pos(r) <= lod]
+    outside = [r for r in rp_rows if not (1 <= field_pos(r) <= lod)]
+    if len(inside) < 8 or len(outside) < 10:
+        return None
+
+    def top_label(grp, field):
+        c = Counter(upper(r.get(field)) for r in grp if upper(r.get(field)) not in ('', 'UNKNOWN', 'NAN'))
+        return c.most_common(1)[0][0] if c else None
+
+    cov_in, cov_out = top_label(inside, 'CoverFamily'), top_label(outside, 'CoverFamily')
+    front_in, front_out = top_label(inside, 'Front Family'), top_label(outside, 'Front Family')
+    blitz_in = sum(1 for r in inside if is_blitz(r)) / len(inside) * 100
+    blitz_out = sum(1 for r in outside if is_blitz(r)) / len(outside) * 100
+
+    parts = []
+    if cov_in and cov_out and cov_in != cov_out:
+        parts.append(f'top coverage flips from {cov_out} to {cov_in}')
+    if front_in and front_out and front_in != front_out:
+        parts.append(f'top front flips from {front_out} to {front_in}')
+    if abs(blitz_in - blitz_out) >= 8:
+        parts.append(f'blitz rate moves from {round(blitz_out)}% to {round(blitz_in)}%')
+    if not parts:
+        return None
+    detail = "; ".join(parts)
+    detail = detail[0].upper() + detail[1:]
+
+    # Scan outward from the primary line to find how far the same shift
+    # stays statistically "live" (clears find_secondary_breakpoint()'s exact
+    # bar: covScore >= 0.45, corroborated by frontScore >= 0.25 or a blitz
+    # swing >= 12 points). Stops at the first yard line that no longer
+    # clears -- this deliberately does NOT keep scanning past a gap (the
+    # RZ-boundary vs rest-of-field comparison re-triggers the bar again out
+    # around +25/+26, which is really just re-detecting "red zone vs not,"
+    # not a genuine continuation of this shift).
+    outer_edge = lod
+    for thresh in range(lod + 1, 27):
+        cand_in = [r for r in rp_rows if 1 <= field_pos(r) <= thresh]
+        cand_out = [r for r in rp_rows if not (1 <= field_pos(r) <= thresh)]
+        if len(cand_in) < 15 or len(cand_out) < 15:
+            continue
+        cov_score = cover_family_score(cand_in, cand_out)
+        front_score = front_family_score(cand_in, cand_out)
+        bi = sum(1 for r in cand_in if is_blitz(r)) / len(cand_in) * 100
+        bo = sum(1 for r in cand_out if is_blitz(r)) / len(cand_out) * 100
+        if cov_score >= 0.45 and (front_score >= 0.25 or abs(bi - bo) >= 12):
+            outer_edge = thresh
+        else:
+            break
+
+    if outer_edge > lod:
+        text = (
+            f'{detail} inside the +{lod}. The tightening is gradual, not a single hard switch -- '
+            f'it\'s measurable as far out as the +{outer_edge}, sharpest inside the +{lod}.'
+        )
+    else:
+        text = f'{detail} once the ball crosses the +{lod}.'
+
+    return {
+        "yardLine": lod, "outerEdge": outer_edge, "text": text,
+        "nInside": len(inside), "nOutside": len(outside),
+    }
+
 def compute_rz(rows):
     """Red Zone tab: breaks opponent-territory snaps (pff_FIELDPOSITION 1-27,
     i.e. inside their own 27) into 3 zones -- Outer RZ (+27 to +13), Score Zone
@@ -744,6 +833,7 @@ def compute_rz(rows):
         "topFrontGL": top_front_gl,
         "glSixManUniversal": gl_six_man_universal,
         "callout": callout,
+        "lineOfDemarcation": rz_demarcation(rows),
     }
 
 ND_SPLIT_DEFS = [
@@ -788,7 +878,13 @@ def main():
     # unaffected by this change -- this only fixes the separate general ND
     # summary card that every team's advance-scout page shows.
     nd_rows = [r for r in rows if down_of(r) in (1,2) and upper(r.get('SituationO')) not in EXCLUDE_FROM_ND_CD and not is_red_zone(r)]
-    cd_rows = [r for r in rows if down_of(r) in (3,4) and upper(r.get('SituationO')) not in EXCLUDE_FROM_ND_CD]
+    # Same RZ exclusion as nd_rows above, applied to CD -- per Matt's explicit
+    # 2026-08-26 rule restatement: "RZ, 4 MIN, 2 EOG & 2 EOH & 3RD/4TH DOWN ALL
+    # IN THEIR OWN SECTIONS." CD (3rd/4th down) is meant to be OPEN FIELD only,
+    # same as ND -- a 3rd/4th down snap inside the red zone belongs exclusively
+    # to the RZ tab, not also counted in Conversion Downs. This mirrors the ND
+    # fix above (which already excludes RZ) but had never been applied to CD.
+    cd_rows = [r for r in rows if down_of(r) in (3,4) and upper(r.get('SituationO')) not in EXCLUDE_FROM_ND_CD and not is_red_zone(r)]
     tm_eog_rows = [r for r in rows if upper(r.get('SituationO')) == '2 EOG']
     tm_eoh_rows = [r for r in rows if upper(r.get('SituationO')) == '2 EOH']
     fm_rows = [r for r in rows if upper(r.get('SituationO')) == '4']
