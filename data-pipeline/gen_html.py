@@ -596,6 +596,155 @@ def bible_card(title, rows_html):
         f'<th class="bib-c">%</th></tr></thead><tbody>{rows_html}</tbody></table></div>'
     )
 
+def rz_family_str(items, bold_first=True):
+    if not items:
+        return '<span style="color:var(--muted)">No data</span>'
+    parts = []
+    for i, it in enumerate(items):
+        label = f'{esc(it["label"])} {it["pct"]}%'
+        parts.append(f'<strong>{label}</strong>' if bold_first and i == 0 else label)
+    return ' · '.join(parts)
+
+def rz_situational_rows(situational):
+    if not situational:
+        return '<tr><td colspan="3" style="text-align:center;color:var(--muted)">No data</td></tr>'
+    return "".join(
+        f'<tr><td>{esc(s["label"])}</td><td>{s["n"]}</td><td>{s["blitzPct"]}%</td></tr>'
+        for s in situational
+    )
+
+def build_rz_zcard(z):
+    front_str = rz_family_str(z["front"])
+    cov_str = rz_family_str(z["coverage"])
+    blitz_str = f'<strong>Blitz: {z["blitzPct"]}%</strong> ({z["blitzCount"]}/{z["n"]})'
+    if z["blitzCount"]:
+        blitz_str += f' · 5-Man {z["fiveManPct"]}% · 6-Man {z["sixManPct"]}%'
+    sit_table = (
+        '<table class="tbl mt8"><thead><tr><th>Down</th><th>Plays</th><th>Blitz%</th></tr></thead>'
+        f'<tbody>{rz_situational_rows(z["situational"])}</tbody></table>'
+    )
+    return f'''<div class="zcard {z["cls"]}">
+          <div class="zhd">{esc(z["label"])} — {z["n"]} plays</div>
+          <div class="txt-sm mb8"><strong>Front:</strong> {front_str}</div>
+          <div class="txt-sm mb8"><strong>Coverage:</strong> {cov_str}</div>
+          <div class="txt-sm mb8">{blitz_str}</div>
+          {sit_table}
+        </div>'''
+
+def build_rz_section(rz):
+    """Red Zone tab, rebuilt 2026-08-24 from compute_situational.py's compute_rz()
+    output. Unlike the Bible tab there's no earlier generator for this section to
+    reuse (the previous RZ tab content was hand-authored against stale/older data
+    and its exact source script no longer exists) -- this is a fresh, fully
+    data-driven build using only what's actually in the current raw CSV. Returns
+    a placeholder callout if there's no RZ data charted yet for this opponent."""
+    if not rz:
+        return '''<div class="callout info"><strong>No Red Zone data available for this opponent yet.</strong> This section will populate automatically once RZ snaps are charted.</div>'''
+
+    cards = [
+        f'<div class="pcard int"><div class="ppct">{rz["blitzPct"]}%</div><div class="plbl">RZ Blitz Rate</div><div class="pcnt">{rz["blitzCount"]}/{rz["n"]} plays</div></div>',
+    ]
+    if rz["topCoverageGL"]:
+        cards.append(
+            f'<div class="pcard fld"><div class="ppct">{rz["topCoverageGL"]["pct"]}%</div>'
+            f'<div class="plbl">Top Coverage at Goal Line</div><div class="pcnt">{esc(rz["topCoverageGL"]["label"])}</div></div>'
+        )
+    if rz["topFrontGL"]:
+        cards.append(
+            f'<div class="pcard dbl"><div class="ppct">{rz["topFrontGL"]["pct"]}%</div>'
+            f'<div class="plbl">Top Front at Goal Line</div><div class="pcnt">{esc(rz["topFrontGL"]["label"])}</div></div>'
+        )
+    if rz["glSixManUniversal"]:
+        cards.append('<div class="pcard bnd"><div class="ppct">100%</div><div class="pcnt">6-man on every GL blitz</div><div class="plbl">&nbsp;</div></div>')
+
+    callout_html = ""
+    if rz["callout"]:
+        callout_html = f'<div class="callout danger mb14"><strong>OUTER RZ → GOAL LINE SHIFTS</strong> — {esc(rz["callout"])}</div>'
+    else:
+        callout_html = '<div class="callout info mb14">Not enough Red Zone plays charted yet to identify a reliable front/coverage shift between zones.</div>'
+
+    lod_html = ""
+    lod = rz.get("lineOfDemarcation")
+    if lod:
+        lod_html = (
+            f'<div class="callout warn mb14"><strong>LINE OF DEMARCATION: THE +{lod["yardLine"]}</strong> — '
+            f'{esc(lod["text"])} ({lod["nInside"]} snaps inside vs {lod["nOutside"]} outside).</div>'
+        )
+
+    zcards = "".join(build_rz_zcard(z) for z in rz["zones"])
+
+    return f'''<div class="g4 mb14">
+        {"".join(cards)}
+      </div>
+      {lod_html}
+      {callout_html}
+      <div class="g3 mb14">
+        {zcards}
+      </div>'''
+
+def build_gl_section(gl):
+    """Standalone Goal Line tab (#sec-gl / tmpl-gl-<TEAM>), from
+    compute_situational.py's compute_gl_detail() output. Added 2026-08-27 to
+    replace a one-off hand-authored block that had drifted out of sync with
+    the RZ tab's own (correct, data-driven) Goal Line zone card for the
+    identical situation -- this generator guarantees the two can't disagree
+    again, since both now read the same underlying rows/filters."""
+    if not gl:
+        return '''<div class="callout info"><strong>No Goal Line data available for this opponent yet.</strong> This section will populate automatically once Goal Line snaps are charted.</div>'''
+
+    callout_html = ""
+    if gl["pkgCallout"]:
+        callout_html = f'<div class="callout danger"><strong>KEY:</strong> {esc(gl["pkgCallout"])}</div>'
+
+    front_rows = "".join(
+        f'<tr><td>{esc(f["label"])}</td><td>{f["count"]}</td><td>{f["pct"]}%</td></tr>'
+        for f in gl["frontFamily"]
+    ) or '<tr><td colspan="3" style="text-align:center;color:var(--muted)">No data</td></tr>'
+
+    by_down_rows = "".join(
+        f'<tr><td>{esc(d["label"])}</td><td>{esc(d["topFront"])}</td><td>{d["blitzPct"]}%</td></tr>'
+        for d in gl["byDown"]
+    ) or '<tr><td colspan="3" style="text-align:center;color:var(--muted)">No data</td></tr>'
+
+    cov_rows = "".join(
+        f'<tr><td>{esc(c["label"])}</td><td>{c["count"]}</td><td>{c["pct"]}%</td></tr>'
+        for c in gl["coverage"]
+    ) or '<tr><td colspan="3" style="text-align:center;color:var(--muted)">No data</td></tr>'
+
+    def pkg_rows(pkgs):
+        return "".join(
+            f'<tr><td>{esc(p["label"])}</td><td>{p["count"]}</td><td>{p["pct"]}%</td></tr>'
+            for p in pkgs
+        )
+    blitz_pkg_rows = pkg_rows(gl["fivePkgs"]) + pkg_rows(gl["sixPkgs"]) + pkg_rows(gl["sevenPkgs"])
+    if not blitz_pkg_rows:
+        blitz_pkg_rows = '<tr><td colspan="3" style="text-align:center;color:var(--muted)">No blitz plays charted yet</td></tr>'
+
+    return f'''{callout_html}
+      <div class="g3">
+        <div class="card">
+          <div class="card-hd">Front Families</div>
+          <table class="tbl"><thead><tr><th>Family</th><th>#</th><th>%</th></tr></thead><tbody>{front_rows}</tbody></table>
+          <div class="mt8 card-hd">Front &amp; Blitz by Down</div>
+          <table class="tbl"><thead><tr><th>Down</th><th>Top Front</th><th>Blitz Rate</th></tr></thead><tbody>{by_down_rows}</tbody></table>
+        </div>
+        <div class="card">
+          <div class="card-hd">Coverage</div>
+          <table class="tbl"><thead><tr><th>Coverage</th><th>#</th><th>%</th></tr></thead><tbody>{cov_rows}</tbody></table>
+        </div>
+        <div class="card">
+          <div class="card-hd">Blitz Summary</div>
+          <table class="tbl"><thead><tr><th>Package</th><th>Plays</th><th>%</th></tr></thead><tbody>
+            <tr><td>Total 5-Man+</td><td>{gl["blitzCount"]} of {gl["n"]}</td><td>{gl["blitzPct"]}%</td></tr>
+            <tr><td>5-Man</td><td>{gl["fiveManN"]}</td><td>{round(gl["fiveManN"]/gl["blitzCount"]*100) if gl["blitzCount"] else 0}%</td></tr>
+            <tr><td>6-Man</td><td>{gl["sixManN"]}</td><td>{round(gl["sixManN"]/gl["blitzCount"]*100) if gl["blitzCount"] else 0}%</td></tr>
+            <tr><td>7-Man</td><td>{gl["sevenManN"]}</td><td>{round(gl["sevenManN"]/gl["blitzCount"]*100) if gl["blitzCount"] else 0}%</td></tr>
+          </tbody></table>
+          <div class="mt8 card-hd">Blitz Packages Used</div>
+          <table class="tbl"><thead><tr><th>Package</th><th>#</th><th>%</th></tr></thead><tbody>{blitz_pkg_rows}</tbody></table>
+        </div>
+      </div>'''
+
 def build_bible_section(bible):
     """'Bible' tab: Normal-Downs coverage cross-tab reference (matches the staff's own
     NDD Bible cheat sheet, dense-spreadsheet style). bible = compute_situational.py's

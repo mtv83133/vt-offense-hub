@@ -860,6 +860,106 @@ BIBLE_GAME_ALLOWLIST = {
     "VMI": ["vs Princeton", "vs Pennsylvania", "vs Dartmouth", "vs Columbia"],
 }
 
+def compute_gl_detail(rows):
+    """Standalone Goal Line tab (#sec-gl / tmpl-gl-<TEAM>) -- a richer,
+    down-split view of the same Goal Line zone (field_pos 1-3) already
+    surfaced as one of the 3 zone cards in compute_rz(). This is a SEPARATE
+    top-level nav tab from the RZ tab, with its own Front Families, Front &
+    Blitz by Down, Coverage, and 5/6/7-Man Blitz Summary (with actual blitz
+    package names, not just man-count %s).
+
+    Rebuilt from scratch 2026-08-27: the previous tmpl-gl-<TEAM> content was
+    a one-off hand-authored block (including a hardcoded "Cornell faced 9
+    Goal Line possessions last season..." sentence) that predated the
+    coverage-family correction pipeline and was never wired into it, so it
+    drifted out of sync with the RZ tab's own (correct) Goal Line zone
+    numbers for the identical situation -- confirmed on VMI: old tab said 18
+    plays / BEAR 39% / GL 0 28% / 44% blitz, RZ zone card (already correct)
+    says 17 plays / BEAR 47% / ZERO 76% / 41% blitz. This function makes the
+    standalone tab fully data-driven like every other tab, using the same
+    Front Family / CoverFamily grouped labels as the rest of the site
+    (rather than the old tab's raw, unlabeled Coverage-column text) so it
+    can never silently drift out of sync with the RZ tab again.
+
+    Returns None if there's no Goal Line data yet."""
+    sub = [r for r in rows if field_pos(r) is not None and 1 <= field_pos(r) <= 3]
+    n = len(sub)
+    if n == 0:
+        return None
+
+    front_c = Counter(upper(r.get('Front Family')) for r in sub)
+    front_family = topN_pct(front_c, n, n=6)
+
+    cov_c = Counter(upper(r.get('CoverFamily')) for r in sub)
+    coverage = topN_pct(cov_c, n, n=6)
+
+    # Front & Blitz by Down -- 1st / 2nd / 3rd&4th combined (matches the
+    # original tab's 3-row grouping).
+    down_groups = [
+        ("1st Down", lambda r: down_of(r) == 1),
+        ("2nd Down", lambda r: down_of(r) == 2),
+        ("3rd & 4th", lambda r: down_of(r) in (3, 4)),
+    ]
+    by_down = []
+    for label, pred in down_groups:
+        grp = [r for r in sub if pred(r)]
+        gn = len(grp)
+        if gn == 0:
+            continue
+        fc = Counter(upper(r.get('Front Family')) for r in grp if upper(r.get('Front Family')) not in ('', 'UNKNOWN', 'NAN', '?'))
+        top = fc.most_common()
+        if top:
+            top_count = top[0][1]
+            top_fronts = ' / '.join(f for f, c in top if c == top_count)
+        else:
+            top_fronts = '--'
+        gb = sum(1 for r in grp if is_blitz(r))
+        by_down.append({
+            "label": f"{label} (n={gn})", "topFront": top_fronts,
+            "blitzPct": round(gb/gn*100) if gn else 0,
+        })
+
+    blitz_sub = [r for r in sub if is_blitz(r)]
+    blitz_n = len(blitz_sub)
+    five_n, five_pkgs = compute_pressure_schemes(blitz_sub, 5, blitz_n) if blitz_n else (0, [])
+    six_n, six_pkgs = compute_pressure_schemes(blitz_sub, 6, blitz_n) if blitz_n else (0, [])
+    seven_n, seven_pkgs = compute_pressure_schemes(blitz_sub, 7, blitz_n) if blitz_n else (0, [])
+
+    # Data-driven package-dominance callout (replaces the old hand-typed
+    # "M WRAP (6-man) is the only blitz package used" sentence -- confirmed
+    # on VMI that sentence is no longer true post-correction: 4 of 7 Goal
+    # Line blitzes are M WRAP, not all of them, though all 7 are still
+    # 6-man).
+    pkg_callout = None
+    if blitz_n:
+        pkg_c = Counter(upper(r.get('Blitz')) for r in blitz_sub if upper(r.get('Blitz')) not in ('', 'UNKNOWN', 'NAN'))
+        if pkg_c:
+            top_pkg, top_pkg_n = pkg_c.most_common(1)[0]
+            man_counts = set(rushers_of(r) for r in blitz_sub if upper(r.get('Blitz')) == top_pkg)
+            man_label = f"{man_counts.pop()}-man" if len(man_counts) == 1 and next(iter(man_counts), None) else None
+            if top_pkg_n == blitz_n:
+                pkg_callout = f'{top_pkg}{f" ({man_label})" if man_label else ""} is the only blitz package used at the Goal Line -- every pressure look is {man_label or "the same package"}.'
+            elif top_pkg_n / blitz_n >= 0.5:
+                pct = round(top_pkg_n/blitz_n*100)
+                pkg_callout = f'{top_pkg} is the primary blitz package at the Goal Line ({pct}% of pressure looks, {top_pkg_n} of {blitz_n}).'
+        all_man_counts = set(rushers_of(r) for r in blitz_sub if rushers_of(r))
+        if len(all_man_counts) == 1:
+            only_man = next(iter(all_man_counts))
+            man_note = f'Every Goal Line pressure look is {only_man}-man ({blitz_n} of {blitz_n}).'
+            pkg_callout = f'{pkg_callout} {man_note}' if pkg_callout else man_note
+
+    return {
+        "n": n,
+        "frontFamily": front_family,
+        "byDown": by_down,
+        "coverage": coverage,
+        "blitzCount": blitz_n, "blitzPct": round(blitz_n/n*100) if n else 0,
+        "fiveManN": five_n, "fivePkgs": five_pkgs,
+        "sixManN": six_n, "sixPkgs": six_pkgs,
+        "sevenManN": seven_n, "sevenPkgs": seven_pkgs,
+        "pkgCallout": pkg_callout,
+    }
+
 def main():
     team, path, delim = sys.argv[1], sys.argv[2], sys.argv[3]
     delim = '\t' if delim == 'tab' else delim
@@ -902,6 +1002,7 @@ def main():
         "secondaryBreakpoint": find_secondary_breakpoint(rows),
         "bible": compute_bible(nd_rows, allowed_games=BIBLE_GAME_ALLOWLIST.get(team)),
         "rz": compute_rz(rows),
+        "gl": compute_gl_detail(rows),
     }
     print(json.dumps(result, indent=2))
 
