@@ -121,7 +121,7 @@ def parse_formation(row):
 def topN_pct(counter, total, n, min_count=1):
     out = []
     for name, cnt in counter.most_common():
-        if name in ('', 'UNKNOWN', 'NAN') or cnt < min_count:
+        if name in ('', 'UNKNOWN', 'NAN', '?') or cnt < min_count:
             continue
         out.append({"label": name, "count": cnt, "pct": round(cnt/total*100) if total else 0})
         if len(out) >= n:
@@ -437,22 +437,76 @@ def defpers_bucket(row):
         return None
     return 'NICKEL' if db >= 5 else 'BASE'
 
-def compute_bible(rows):
+def is_red_zone(row):
+    """Standard red zone: opponent's 20-yard-line and in. CORRECTED 2026-08-24:
+    this dataset's pff_FIELDPOSITION convention is POSITIVE = opponent territory
+    (distance-to-goal), confirmed directly against goal-to-go rows in VMI's raw
+    export (field_pos=1/distance=1, field_pos=2/distance=2, field_pos=3/distance=3,
+    etc. -- exact match only holds if positive field_pos IS yards-to-opponent-goal).
+    An earlier pass on this same date incorrectly assumed the opposite sign and
+    excluded the wrong 13 plays (own-territory snaps near midfield) while leaving
+    the real ~72 red-zone snaps in the Bible -- this fixes that. RZ = 1 <= field_pos
+    <= 20. Per Matt's 2026-08-24 direction, the Bible (NDD cheat-sheet) should
+    exclude RZ snaps entirely -- it's meant to reflect the base-field normal-downs
+    picture, with RZ handled by its own dedicated tab/section."""
+    fp = field_pos(row)
+    return fp is not None and 1 <= fp <= 20
+
+def is_fully_charted(row):
+    """A play only belongs in the Bible if it has real data in all three of
+    Formation (FinalForm), Coverage (CoverFamily), and Front (Front Family).
+    Per Matt's 2026-08-24 direction: a play charted with only some of those
+    columns filled in (e.g. Formation logged but Coverage/Front never charted)
+    should be excluded outright, not shown as a labeled 'UNCHARTED' row."""
+    return bool(upper(row.get('FinalForm'))) and bool(upper(row.get('CoverFamily'))) and bool(upper(row.get('Front Family')))
+
+def compute_bible(rows, allowed_games=None):
     """Normal-Downs coverage cross-tab reference ('Bible' tab), matching the staff's
     own 'NDD Bible' cheat-sheet format: coverage broken out against offensive personnel,
     fronts, defensive personnel, formation, FIB, WARP tempo, and Base/Nickel. rows should
-    already be the Normal Downs bucket (down 1-2, non-2min/4min). Returns None if empty."""
+    already be the Normal Downs bucket (down 1-2, non-2min/4min) -- this function further
+    excludes Red Zone snaps (see is_red_zone) and any play not fully charted across
+    Formation/Coverage/Front (see is_fully_charted), so the Bible reflects only complete,
+    base-field normal-downs data. Returns None if empty.
+
+    allowed_games: optional list of substrings to match against each row's Name field,
+    restricting the Bible to only specific games. Per Matt's 2026-08-24 direction: not
+    every charted game has normal downs charted to the same completeness -- some games
+    only got 3rd/4th down, RZ, and 2-min/4-min situational snaps charted (used elsewhere
+    -- CD/RZ/TM/FM all still use every game), while normal-downs-open-field charting was
+    only done thoroughly for a subset of games. Every game DOES have some down-1/2 rows
+    tagged (so this can't be auto-detected from down distribution alone -- confirmed by
+    inspecting VMI's raw CSV: e.g. Harvard has 23 down-1/2 rows, not zero, yet still isn't
+    one of the fully-charted games) -- so the game list has to come from Matt directly
+    rather than being inferred. Pass None (default) for opponents where every game is
+    fully charted for normal downs."""
+    if allowed_games:
+        rows = [r for r in rows if any(g in (r.get('Name') or '') for g in allowed_games)]
+    rows = [r for r in rows if not is_red_zone(r) and is_fully_charted(r)]
+
+    # FIB ('FIB REACTION' / motion-into-boundary-type situational tag) plays get
+    # their own dedicated "Coverage to FIB" card further down -- they were being
+    # double-counted into every other table (Overall Coverage, Coverage by Off
+    # Personnel, Coverage to Formation Group, etc.) too, which is what caused counts
+    # there to run higher than Matt's own cutup counts. Fixed 2026-08-24, confirmed
+    # against Matt's TRIPS cutup (Book2.xlsx): his 18 real TRIPS plays are exactly
+    # the FIB-blank subset of the 34 FIB-blank-or-YES plays my query originally
+    # returned. fib_rows (computed below, for the FIB card) still comes from the
+    # full RZ-excluded/fully-charted/allowed-games pool -- only the FIB=YES rows are
+    # pulled OUT of `rows` itself so every other table reflects base, non-FIB snaps.
+    fib_rows = [r for r in rows if upper(r.get('FIB')) == 'YES']
+    rows = [r for r in rows if upper(r.get('FIB')) != 'YES']
     total = len(rows)
     if total == 0:
         return None
 
     def cov_breakdown(sub):
         c = Counter(upper(r.get('CoverFamily')) for r in sub)
-        return topN_pct(c, len(sub), n=15)
+        return topN_pct(c, len(sub), n=16)
 
     def front_breakdown(sub):
         c = Counter(upper(r.get('Front Family')) for r in sub)
-        return topN_pct(c, len(sub), n=15)
+        return topN_pct(c, len(sub), n=16)
 
     def off_pers_of(r):
         return (r.get('PERS(O)') or '').strip().upper()
@@ -479,8 +533,8 @@ def compute_bible(rows):
         "fronts": front_breakdown(grp),
     } for pers, grp in pers_sorted]
 
-    # ---- 4. Coverage to FIB ----
-    fib_rows = [r for r in rows if upper(r.get('FIB')) == 'YES']
+    # ---- 4. Coverage to FIB (fib_rows computed above, before FIB=YES rows were
+    # pulled out of `rows`) ----
     coverage_to_fib = cov_breakdown(fib_rows) if fib_rows else []
 
     # ---- 5. Coverage to Tempo (WARP = pff_TEMPO == '1') ----
@@ -584,6 +638,114 @@ def compute_bible(rows):
         "coverageToFormFamily": coverage_to_form_family,
     }
 
+RZ_ZONE_DEFS = [
+    ("outer", "+27 to +13 (Outer RZ)", "outer", 13, 27),
+    ("score", "+12 to +4 (Score Zone)", "score", 4, 12),
+    ("gl", "Goal Line +3 to +1", "gl", 1, 3),
+]
+
+def _rz_situational(sub):
+    """Down-based situational breakdown (Plays, Blitz%) for one RZ zone --
+    generic across zones (unlike the old hand-built per-zone situational
+    buckets) so it stays accurate as new data comes in."""
+    out = []
+    for label, pred in [
+        ("1st Down", lambda r: down_of(r) == 1),
+        ("2nd Down", lambda r: down_of(r) == 2),
+        ("3rd Down", lambda r: down_of(r) == 3),
+        ("4th Down", lambda r: down_of(r) == 4),
+    ]:
+        grp = [r for r in sub if pred(r)]
+        n = len(grp)
+        if n == 0:
+            continue
+        blitz_n = sum(1 for r in grp if is_blitz(r))
+        out.append({"label": label, "n": n, "blitzPct": round(blitz_n/n*100) if n else 0})
+    return out
+
+def compute_rz(rows):
+    """Red Zone tab: breaks opponent-territory snaps (pff_FIELDPOSITION 1-27,
+    i.e. inside their own 27) into 3 zones -- Outer RZ (+27 to +13), Score Zone
+    (+12 to +4), Goal Line (+3 to +1) -- matching the staff's existing RZ tab
+    format. rows should be the full non-garbage play set for the opponent (all
+    downs -- RZ tendencies aren't limited to normal downs). Rebuilt 2026-08-24
+    from the current raw CSV; no prior version of this function existed, so
+    this is a from-scratch, fully data-driven build (no hand-authored zone
+    boundaries or narrative -- everything below is computed from real rows).
+    Returns None if there's no RZ data at all yet."""
+    zones = []
+    for key, label, cls, lo, hi in RZ_ZONE_DEFS:
+        sub = [r for r in rows if field_pos(r) is not None and lo <= field_pos(r) <= hi]
+        n = len(sub)
+        front_c = Counter(upper(r.get('Front Family')) for r in sub)
+        cov_c = Counter(upper(r.get('CoverFamily')) for r in sub)
+        blitz_sub = [r for r in sub if is_blitz(r)]
+        blitz_n = len(blitz_sub)
+        five_n, _ = compute_pressure_schemes(blitz_sub, 5, blitz_n) if blitz_n else (0, [])
+        six_n, _ = compute_pressure_schemes(blitz_sub, 6, blitz_n) if blitz_n else (0, [])
+        zones.append({
+            "key": key, "label": label, "cls": cls, "n": n,
+            "front": topN_pct(front_c, n, n=4),
+            "coverage": topN_pct(cov_c, n, n=4),
+            "blitzCount": blitz_n, "blitzPct": round(blitz_n/n*100) if n else 0,
+            "fiveManPct": round(five_n/blitz_n*100) if blitz_n else 0,
+            "sixManPct": round(six_n/blitz_n*100) if blitz_n else 0,
+            "situational": _rz_situational(sub),
+        })
+
+    total_n = sum(z["n"] for z in zones)
+    if total_n == 0:
+        return None
+    total_blitz = sum(z["blitzCount"] for z in zones)
+
+    gl = next(z for z in zones if z["key"] == "gl")
+    top_cov_gl = gl["coverage"][0] if gl["coverage"] else None
+    top_front_gl = gl["front"][0] if gl["front"] else None
+    gl_six_man_universal = gl["blitzCount"] > 0 and gl["sixManPct"] == 100
+
+    # ---- Data-driven callout: describe the biggest front/coverage swings
+    # between the widest (Outer) and tightest (Goal Line) zones, using the
+    # same cover/front-family shift-score helpers as the secondary-breakpoint
+    # scanner. Only claims a shift if the zones actually have decent samples;
+    # otherwise falls back to a plain "not enough plays yet" note. ----
+    outer = zones[0]
+    callout = None
+    if outer["n"] >= 15 and gl["n"] >= 5:
+        outer_rows = [r for r in rows if field_pos(r) is not None and 13 <= field_pos(r) <= 27]
+        gl_rows = [r for r in rows if field_pos(r) is not None and 1 <= field_pos(r) <= 3]
+        cov_shift = cover_family_score(outer_rows, gl_rows)
+        front_shift = front_family_score(outer_rows, gl_rows)
+        parts = []
+        if top_front_gl and outer["front"]:
+            of = {f["label"]: f["pct"] for f in outer["front"]}
+            gf_pct = top_front_gl["pct"]
+            of_pct = of.get(top_front_gl["label"], 0)
+            if gf_pct > of_pct:
+                parts.append(f'{top_front_gl["label"]} front rises from {of_pct}% in the Outer RZ to {gf_pct}% at the Goal Line')
+        if top_cov_gl:
+            oc = {c["label"]: c["pct"] for c in outer["coverage"]}
+            oc_pct = oc.get(top_cov_gl["label"], 0)
+            if top_cov_gl["pct"] != oc_pct:
+                parts.append(f'{top_cov_gl["label"]} coverage moves from {oc_pct}% in the Outer RZ to {top_cov_gl["pct"]}% at the Goal Line')
+        if outer["blitzPct"] != gl["blitzPct"]:
+            parts.append(f'blitz rate shifts from {outer["blitzPct"]}% in the Outer RZ to {gl["blitzPct"]}% at the Goal Line')
+        if parts:
+            joined = "; ".join(parts)
+            callout = joined[0].upper() + joined[1:] + "."
+        if cov_shift < 0.2 and front_shift < 0.2 and not callout:
+            callout = None
+
+    return {
+        "n": total_n,
+        "blitzPct": round(total_blitz/total_n*100) if total_n else 0,
+        "blitzCount": total_blitz,
+        "zones": zones,
+        "topCoverageGL": top_cov_gl,
+        "topFrontGL": top_front_gl,
+        "glSixManUniversal": gl_six_man_universal,
+        "callout": callout,
+    }
+
 ND_SPLIT_DEFS = [
     ("1st Down", lambda r: down_of(r) == 1),
     ("2nd & Short (1-3)", lambda r: down_of(r) == 2 and distance_of(r) is not None and 1 <= distance_of(r) <= 3),
@@ -600,13 +762,32 @@ CD_SPLIT_DEFS = [
     ("4th Down (All)", lambda r: down_of(r) == 4),
 ]
 
+# Per Matt's 2026-08-24 direction: only these 4 Cornell games were fully charted
+# for normal-downs/open-field snaps (the other 6 games only got 3rd/4th down, RZ,
+# and 2-min/4-min situational snaps charted, not a complete normal-downs sample).
+# CD/RZ/TM/FM all still pull from every game -- this restriction is Bible-only.
+BIBLE_GAME_ALLOWLIST = {
+    "VMI": ["vs Princeton", "vs Pennsylvania", "vs Dartmouth", "vs Columbia"],
+}
+
 def main():
     team, path, delim = sys.argv[1], sys.argv[2], sys.argv[3]
     delim = '\t' if delim == 'tab' else delim
     rows = load(path, delim)
     rows = [r for r in rows if upper(r.get('SituationO')) != GARBAGE]
 
-    nd_rows = [r for r in rows if down_of(r) in (1,2) and upper(r.get('SituationO')) not in EXCLUDE_FROM_ND_CD]
+    # Per Matt's 2026-08-25 direction: the general Normal Downs card (Fronts,
+    # Formations, Coverage, Blitz -- compute_bucket(nd_rows) below, NOT just
+    # the Bible tab) must be 1st/2nd down, OPEN FIELD only -- exclude Red
+    # Zone (which covers Goal Line as a subset, field_pos 1-20 under the
+    # confirmed sign convention, see is_red_zone()/§2a of the skill) in
+    # addition to the existing 2min/4min exclusion. Confirmed on VMI: this
+    # removes 72 RZ snaps that were previously polluting the open-field ND
+    # numbers (244 -> 172). compute_bible() already applied this same RZ
+    # exclusion internally on top of nd_rows, so Bible tab numbers are
+    # unaffected by this change -- this only fixes the separate general ND
+    # summary card that every team's advance-scout page shows.
+    nd_rows = [r for r in rows if down_of(r) in (1,2) and upper(r.get('SituationO')) not in EXCLUDE_FROM_ND_CD and not is_red_zone(r)]
     cd_rows = [r for r in rows if down_of(r) in (3,4) and upper(r.get('SituationO')) not in EXCLUDE_FROM_ND_CD]
     tm_eog_rows = [r for r in rows if upper(r.get('SituationO')) == '2 EOG']
     tm_eoh_rows = [r for r in rows if upper(r.get('SituationO')) == '2 EOH']
@@ -623,7 +804,8 @@ def main():
         "ndSplits": compute_down_splits(nd_rows, ND_SPLIT_DEFS),
         "cdSplits": compute_down_splits(cd_rows, CD_SPLIT_DEFS),
         "secondaryBreakpoint": find_secondary_breakpoint(rows),
-        "bible": compute_bible(nd_rows),
+        "bible": compute_bible(nd_rows, allowed_games=BIBLE_GAME_ALLOWLIST.get(team)),
+        "rz": compute_rz(rows),
     }
     print(json.dumps(result, indent=2))
 
