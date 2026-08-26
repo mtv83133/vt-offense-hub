@@ -130,13 +130,119 @@ function getDeepForTeam(team) {
 // Which deep-section detail each position group sees. QB (and TE, given
 // the position's dual run/pass-catching role) get everything; other
 // groups get the stabs that are actually relevant to their job.
+// Per Matt's 2026-08-26 direction: OL doesn't need offensive-formation
+// frequency info at all (that's a playcaller/coordinator concern, not
+// relevant to a lineman's job) -- OL is the only position group with
+// 'formations' dropped from its nd/cd stabs. Everyone else unchanged.
 const STAB_MAP = {
   qb: { run: true, nd: ['formations', 'fronts', 'coverage', 'blitz'], cd: ['formations', 'fronts', 'coverage', 'blitz'], rz: true, gl: true },
   te: { run: true, nd: ['formations', 'fronts', 'coverage', 'blitz'], cd: ['formations', 'fronts', 'coverage', 'blitz'], rz: true, gl: true },
-  ol: { run: true, nd: ['formations', 'fronts', 'blitz'], cd: ['formations', 'fronts', 'blitz'], rz: true, gl: true },
+  ol: { run: true, nd: ['fronts', 'blitz'], cd: ['fronts', 'blitz'], rz: true, gl: true },
   rb: { run: true, nd: ['formations', 'fronts', 'blitz'], cd: ['formations', 'fronts', 'blitz'], rz: true, gl: true },
   wr: { run: false, nd: ['formations', 'coverage'], cd: ['formations', 'coverage'], rz: true, gl: true },
 };
+
+// ---------- "Personnel info" cards (Fronts/Coverage/Blitz by Personnel) ----------
+// Per Matt's 2026-08-26 direction: pull the "X by Personnel" card straight out of
+// each position's already-curated nd/cd stab content (same source, no new data) so
+// player-view.html can surface it right under "Need to Know" instead of it only
+// living buried inside the collapsed "Full Coach Breakdown" detail section.
+const PERSONNEL_HEADING = { fronts: 'Fronts by Personnel', coverage: 'Coverage by Personnel', blitz: 'Blitz by Personnel' };
+
+function extractCardByHeading(html, heading) {
+  if (!html) return null;
+  const doc = fragDoc(html);
+  const root = doc.getElementById('root');
+  const cards = Array.from(root.querySelectorAll('.card'));
+  const match = cards.find(c => {
+    const hd = c.querySelector('.card-hd');
+    return hd && hd.textContent.trim() === heading;
+  });
+  return match ? match.outerHTML : null;
+}
+
+function buildPersonnelInfo(deepCurated) {
+  const out = {};
+  ['nd', 'cd'].forEach(sec => {
+    if (!deepCurated[sec]) return;
+    Object.keys(PERSONNEL_HEADING).forEach(stabName => {
+      const stabHTML = deepCurated[sec][stabName];
+      if (!stabHTML) return;
+      const card = extractCardByHeading(stabHTML, PERSONNEL_HEADING[stabName]);
+      if (card) {
+        out[sec] = out[sec] || {};
+        out[sec][stabName] = card;
+      }
+    });
+  });
+  return Object.keys(out).length ? out : null;
+}
+
+// ---------- Matchups (best/toughest/superlatives), filtered per position ----------
+// Per Matt's 2026-08-26 direction:
+//   QB   -> all players
+//   RB/OL -> DL & LBs only
+//   TE   -> DL, LB, SS, FS (safeties, not corners)
+//   WR   -> Secondary & Nickel/Sam (the whole DB group)
+// Plus: the "WR - Q. Brown (#3)" entry is excluded from the player-facing
+// version entirely, regardless of position (stays intact in the coach's
+// advance-scout.html copy -- this filtering only affects player-view.html).
+const EXCLUDE_MATCHUP_VT = ['WR - Q. Brown (#3)'];
+
+function matchupUnits(text) {
+  const t = String(text || '');
+  // "s?" on every alternative -- free-text descriptions use plurals a lot
+  // ("DBs", "LBs (#43 + #21)") and \b...\b doesn't match across a trailing
+  // "s" (no word-boundary between "B" and "s"), so without this the regex
+  // silently misses plural mentions and the entry falls through to the
+  // "unclassifiable -> include for everyone" default below.
+  const units = new Set();
+  if (/\b(DTs?|DEs?|NTs?|RUSH(ES)?|IDLs?|DLs?)\b/i.test(t)) units.add('DL');
+  if (/\b(LBs?|WILLs?|MIKEs?|MLBs?|WLBs?|WOLFs?|NICKELs?|SAMs?|N\/S)\b/i.test(t)) units.add('LB');
+  if (/\b(DBs?|CBs?|SAFs?|SSs?|FSs?|NKLs?|FCs?|BCs?|Secondary)\b/i.test(t)) units.add('DB');
+  if (/back\s*7/i.test(t)) { units.add('LB'); units.add('DB'); }
+  return units;
+}
+
+function posAllowsUnits(posKey, units) {
+  if (!units.size) return true; // unclassifiable free text -- err on including it
+  if (posKey === 'qb') return true;
+  if (posKey === 'ol' || posKey === 'rb') return units.has('DL') || units.has('LB');
+  if (posKey === 'te') return units.has('DL') || units.has('LB') || units.has('DB');
+  if (posKey === 'wr') return units.has('DB');
+  return true;
+}
+
+function posAllowsGroup(posKey, group) {
+  const g = String(group || '').toUpperCase();
+  if (posKey === 'qb') return true;
+  if (posKey === 'ol' || posKey === 'rb') return g === 'IDL' || g === 'DE' || g === 'LB';
+  if (posKey === 'te') return g === 'IDL' || g === 'DE' || g === 'LB' || g === 'DB';
+  if (posKey === 'wr') return g === 'DB';
+  return true;
+}
+
+function filterMatchupsForPosition(matchups, posKey) {
+  if (!matchups) return null;
+  const dropExcluded = (rows) => (rows || []).filter(r => !EXCLUDE_MATCHUP_VT.includes(r.vt));
+
+  const best = dropExcluded(matchups.best).filter(r => posAllowsUnits(posKey, matchupUnits(r.opp)));
+  const toughest = dropExcluded(matchups.toughest).filter(r => posAllowsUnits(posKey, matchupUnits(r.opp)));
+
+  const superlatives = (matchups.superlatives || []).map(g => {
+    if (!posAllowsGroup(posKey, g.group)) return null;
+    let rows = g.rows || [];
+    // TE's spec is DL/LB/SS/FS -- within the DB group specifically, keep only
+    // safety rows (player text starts with "SAF"), drop corner/nickel rows.
+    if (posKey === 'te' && String(g.group).toUpperCase() === 'DB') {
+      rows = rows.filter(r => /^SAF\b/i.test(r.player || ''));
+    }
+    return rows.length ? { group: g.group, rows } : null;
+  }).filter(Boolean);
+
+  if (!best.length && !toughest.length && !superlatives.length) return null;
+  return { best, toughest, superlatives };
+}
 
 function curateDeepForPosition(deep, posKey) {
   const map = STAB_MAP[posKey];
@@ -185,33 +291,48 @@ function curateTeam(D, teamKey) {
     depthChart,
   };
 
+  const deepQb = curateDeepForPosition(deep, 'qb');
+  const deepOl = curateDeepForPosition(deep, 'ol');
+  const deepRb = curateDeepForPosition(deep, 'rb');
+  const deepWr = curateDeepForPosition(deep, 'wr');
+  const deepTe = curateDeepForPosition(deep, 'te');
+
   base.qb = {
     ndCovDonut: D.ndCovDonut, cdCovDonut: D.cdCovDonut,
     ndFrontsDonut: D.ndFrontsDonut, cdFrontsDonut: D.cdFrontsDonut,
     ndFormationChart: fc(D.ndFormationChart), cdFormationChart: fc(D.cdFormationChart),
-    deep: curateDeepForPosition(deep, 'qb'),
+    deep: deepQb, personnel: buildPersonnelInfo(deepQb),
+    matchups: filterMatchupsForPosition(D.matchups, 'qb'),
   };
   base.ol = {
     ndFrontsDonut: D.ndFrontsDonut, cdFrontsDonut: D.cdFrontsDonut,
+    // ndFormationChart/cdFormationChart are kept (not shown as a chart/bars --
+    // only used to compute the aggregate "overall pressure rate" Need to Know
+    // bullet, which is a plain %, not formation-specific info) per Matt's
+    // "exclude any formation info from OL page" direction.
     ndFormationChart: fc(D.ndFormationChart), cdFormationChart: fc(D.cdFormationChart),
-    deep: curateDeepForPosition(deep, 'ol'),
+    deep: deepOl, personnel: buildPersonnelInfo(deepOl),
+    matchups: filterMatchupsForPosition(D.matchups, 'ol'),
   };
   base.rb = {
     ndFrontsDonut: D.ndFrontsDonut, cdFrontsDonut: D.cdFrontsDonut,
     runFamilies: D.runFamilies,
     ndFormationChart: fc(D.ndFormationChart), cdFormationChart: fc(D.cdFormationChart),
-    deep: curateDeepForPosition(deep, 'rb'),
+    deep: deepRb, personnel: buildPersonnelInfo(deepRb),
+    matchups: filterMatchupsForPosition(D.matchups, 'rb'),
   };
   base.wr = {
     ndCovDonut: D.ndCovDonut, cdCovDonut: D.cdCovDonut,
     ndFormationChart: fc(D.ndFormationChart), cdFormationChart: fc(D.cdFormationChart),
-    deep: curateDeepForPosition(deep, 'wr'),
+    deep: deepWr, personnel: buildPersonnelInfo(deepWr),
+    matchups: filterMatchupsForPosition(D.matchups, 'wr'),
   };
   base.te = {
     ndCovDonut: D.ndCovDonut, cdCovDonut: D.cdCovDonut,
     ndFrontsDonut: D.ndFrontsDonut, cdFrontsDonut: D.cdFrontsDonut,
     ndFormationChart: fc(D.ndFormationChart), cdFormationChart: fc(D.cdFormationChart),
-    deep: curateDeepForPosition(deep, 'te'),
+    deep: deepTe, personnel: buildPersonnelInfo(deepTe),
+    matchups: filterMatchupsForPosition(D.matchups, 'te'),
   };
 
   return base;
