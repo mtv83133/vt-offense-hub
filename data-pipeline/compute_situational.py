@@ -147,6 +147,99 @@ def compute_pressure_schemes(blitz_rows, rusher_count, blitz_total, n=8):
 def is_run_pass(row):
     return upper(row.get('pff_RUNPASS')) in ('R', 'P')
 
+# ---- Run Defense tab (run-scheme family efficiency + DL technique/DE reaction
+# breakdowns), per Matt's 2026-08-28 direction. "PlayType" is the run-scheme
+# tag column (WZ/TZ/MZ/GAP/DRAW/SPEED OPTION); "REMEMBER THIS FOREVER" fallback
+# for opponents where PlayType is blank: the leading digit of the dressed Run
+# Play call indicates family via VT's hole-number convention --
+# 0/1 = Tite Zone, 4/5 = Mid Zone, 6/7 = Gap, 8/9 = Wide Zone.
+RUN_FAMILY_MAP = {
+    "WZ": "WIDE ZONE", "TZ": "TITE ZONE", "MZ": "MID ZONE", "MZ FLIP": "MID ZONE",
+    "GAP": "GAP", "DRAW": "DRAW", "SPEED OPTION": "OPTION", "OPTION": "OPTION",
+}
+RUN_NUM_PREFIX_MAP = {
+    '0': "TITE ZONE", '1': "TITE ZONE",
+    '4': "MID ZONE", '5': "MID ZONE",
+    '6': "GAP", '7': "GAP",
+    '8': "WIDE ZONE", '9': "WIDE ZONE",
+}
+RUN_FAMILY_ORDER = ["WIDE ZONE", "MID ZONE", "TITE ZONE", "GAP", "DRAW", "OPTION"]
+
+def run_family_of(row):
+    fam = RUN_FAMILY_MAP.get(upper(row.get('PlayType')))
+    if fam:
+        return fam
+    m = re.match(r'\s*(\d)', norm(row.get('Run Play')))
+    if m:
+        return RUN_NUM_PREFIX_MAP.get(m.group(1))
+    return None
+
+def is_clean_tag(v):
+    """A trailing '?' means the charter wasn't confident in the tag; 'EMPTY'
+    isn't a real alignment/reaction value. Both are excluded from the DL
+    Technique / DE Reaction breakdown tables (established VMI/ODU convention:
+    only confidently-charted tags are counted)."""
+    v = norm(v)
+    return bool(v) and not v.endswith('?') and v.upper() != 'EMPTY'
+
+def compute_run_tab(rows):
+    """Run Defense tab: run-family efficiency (WIDE ZONE/MID ZONE/TITE ZONE/
+    GAP/DRAW/OPTION), DL 3-Tech alignment (RB side), and DE Reaction (P.O.A. /
+    Read) breakdowns, aggregated across every charted run snap (not down-
+    bucketed -- matches the existing shipped Run tab's full-season scope)."""
+    run_rows = [r for r in rows if upper(r.get('pff_RUNPASS')) == 'R']
+
+    fam_n, fam_eff = Counter(), Counter()
+    for r in run_rows:
+        fam = run_family_of(r)
+        if not fam:
+            continue
+        fam_n[fam] += 1
+        if upper(r.get('pff_VAPI_EFFICIENT')) == 'Y':
+            fam_eff[fam] += 1
+
+    families = []
+    for fam in RUN_FAMILY_ORDER:
+        n = fam_n.get(fam, 0)
+        if n == 0:
+            continue
+        families.append({"name": fam, "plays": n, "eff": round(fam_eff.get(fam, 0) / n * 100)})
+    families.sort(key=lambda x: -x["plays"])
+
+    total_n = sum(f["plays"] for f in families)
+    total_eff_n = sum(fam_eff.get(f["name"], 0) for f in families)
+    overall_pct = round(total_eff_n / total_n * 100) if total_n else 0
+
+    by_eff = sorted(families, key=lambda x: -x["eff"])
+    narrative = None
+    if len(by_eff) >= 2:
+        worst, best = by_eff[0], by_eff[-1]
+        middle = [f for f in by_eff if f is not worst and f is not best]
+        text = (f'Overall Run Efficiency Allowed: {overall_pct}% ({total_eff_n}/{total_n} qualifying snaps) — '
+                f'{worst["name"].title()} is their most vulnerable at {worst["eff"]}%. '
+                f'{best["name"].title()} is defended best at {best["eff"]}%.')
+        if middle:
+            names = " and ".join(f["name"].title() for f in middle)
+            pcts = " and ".join(f'{f["eff"]}%' for f in middle)
+            verb = "sit" if len(middle) > 1 else "sits"
+            text += f' {names} {verb} in between at {pcts}.'
+        narrative = text
+    elif len(by_eff) == 1:
+        f = by_eff[0]
+        narrative = f'Overall Run Efficiency Allowed: {overall_pct}% ({total_eff_n}/{total_n} qualifying snaps) — {f["name"].title()} only, at {f["eff"]}%.'
+
+    def tally(field):
+        c = Counter(upper(r.get(field)) for r in run_rows if is_clean_tag(r.get(field)))
+        return [{"label": k, "n": v} for k, v in sorted(c.items(), key=lambda kv: -kv[1])]
+
+    return {
+        "n": total_n, "effN": total_eff_n, "effPct": overall_pct,
+        "families": families, "narrative": narrative,
+        "threeTech": tally('3TECH (TO/AWAY)'),
+        "dePoa": tally('DE REACTION(P.O.A)'),
+        "deRead": tally('DE REACTION ( READ)'),
+    }
+
 def field_pos(row):
     try:
         return int(norm(row.get('pff_FIELDPOSITION')))
@@ -171,27 +264,42 @@ def front_family_score(inside, outside):
     return sum(abs(f_in.get(f, 0)/n_in - f_out.get(f, 0)/n_out) for f in all_f)
 
 def find_rz_line_of_demarcation(rp_rows):
-    """Replicates the existing RZ 'line of demarcation' method (generate_report.py)
-    so the secondary-breakpoint scanner below knows which yardage is ALREADY
-    covered by that analysis and doesn't rediscover it under a new label."""
+    """Finds the single yard line where the defense's CoverFamily distribution
+    shifts most sharply, scanning EVERY yard line (not just multiples of 5)
+    from +1 out to +35.
+
+    2026-08-28 rewrite, per Matt's direct challenge ("scan every yard line,
+    not just 5/10/15/20/25") after he questioned why ODU and Maryland both
+    independently landed on exactly +5 under the old coarse-grid version.
+    Investigation confirmed the coarse grid itself wasn't cheating -- +5
+    legitimately beat +10/+15/+20/+25 for all 3 currently-loaded opponents --
+    but a full 1-yard-increment scan exposed a real flaw underneath: with the
+    "inside" group as small as 8-15 plays, cover_family_score() (an
+    un-normalized total-variation distance, see its docstring) is dominated
+    by small-sample noise, so the raw per-yard-line argmax jumps around
+    unstably (ODU +4, MARYLAND +2, VMI +1 -- each on an "inside" n of 8-14,
+    each easily explained by 2-3 plays landing a certain way by chance, NOT a
+    real scheme change). Verified empirically: once the "inside" sample floor
+    is raised enough to escape that noise regime (tested every floor 8-30 for
+    all 3 teams), the best-scoring yard line stops moving and stabilizes --
+    the stabilization point lands consistently in the n>=15 range across all
+    3 teams (ODU stabilizes at inside-n>=16, MARYLAND at >=12, VMI at >=13).
+    15 is therefore used as the floor: large enough that every team's answer
+    is past its own noise-driven instability point, small enough to still
+    resolve a genuinely tight-radius shift rather than forcing every opponent
+    toward the same wide default. Re-validate this floor choice (rerun the
+    stability sweep above) if a future opponent's answer looks suspiciously
+    unstable or suspiciously identical to another team's."""
     best_thresh, best_score = 15, 0
-    for thresh in [5, 10, 15, 20, 25]:
+    MIN_INSIDE = 15
+    for thresh in range(1, 36):
         inside = [r for r in rp_rows if field_pos(r) is not None and 1 <= field_pos(r) <= thresh]
         outside = [r for r in rp_rows if field_pos(r) is not None and not (1 <= field_pos(r) <= thresh)]
-        if len(inside) < 8 or len(outside) < 10:
+        if len(inside) < MIN_INSIDE or len(outside) < 10:
             continue
         score = cover_family_score(inside, outside)
         if score > best_score:
             best_score, best_thresh = score, thresh
-    if best_score < 0.08:
-        for thresh in [30, 35]:
-            inside = [r for r in rp_rows if field_pos(r) is not None and 1 <= field_pos(r) <= thresh]
-            outside = [r for r in rp_rows if field_pos(r) is not None and not (1 <= field_pos(r) <= thresh)]
-            if len(inside) < 8 or len(outside) < 10:
-                continue
-            score = cover_family_score(inside, outside)
-            if score > best_score:
-                best_score, best_thresh = score, thresh
     return best_thresh
 
 def find_secondary_breakpoint(rows):
@@ -624,6 +732,59 @@ def compute_bible(rows, allowed_games=None):
         "coverage": cov_breakdown(grp),
     } for f, grp in sorted(form_groups.items(), key=lambda kv: -len(kv[1]))]
 
+    # ---- 11. Normal Downs Breakdown by Formation (PREPARE FOR / REACT TO / MIXERS /
+    # PRESSURE) -- reuses the same form_groups grouping as #10 above (FinalForm), just
+    # reshaped into the staff's "Michigan Breakdown"-style situational-card format
+    # instead of a flat cross-tab list. PREPARE FOR = the single most common coverage
+    # family; REACT TO = the 2nd most common; MIXERS = up to 2 additional coverage
+    # families that still clear MIXER_MIN_COUNT (secondary/notable tags, not just
+    # single-snap noise); PRESSURE = blitz rate, with BLITZ_LOOK_MIN clearing enough
+    # snaps to name a specific blitz look (e.g. "MISSILE") rather than just a %.
+    # Matt flagged (2026-08-26) he'll likely want these thresholds tuned once he's
+    # seen it live -- MIXER_MIN_COUNT/BLITZ_LOOK_MIN/MIN_FORM_N are the knobs to
+    # adjust. MIN_FORM_N keeps the grid from being swamped by 1-2-snap formations
+    # (e.g. VMI's FinalForm column has ~16 formations with only 1 charted snap) --
+    # anything below it is rolled into a single "Small Sample" summary card instead
+    # of silently dropped.
+    MIXER_MIN_COUNT = 2
+    BLITZ_LOOK_MIN = 2
+    MIN_FORM_N = 3
+
+    def prm_group(sub):
+        n = len(sub)
+        cov_top = cov_breakdown(sub)
+        prepare_for = cov_top[0] if len(cov_top) > 0 else None
+        react_to = cov_top[1] if len(cov_top) > 1 else None
+        mixers = [c for c in cov_top[2:4] if c["count"] >= MIXER_MIN_COUNT]
+        blitz_sub = [r for r in sub if is_blitz(r)]
+        blitz_n = len(blitz_sub)
+        blitz_c = Counter(upper(r.get('Blitz')) for r in blitz_sub if upper(r.get('Blitz')))
+        blitz_looks = topN_pct(blitz_c, blitz_n, n=2, min_count=BLITZ_LOOK_MIN) if blitz_n else []
+        return {
+            "n": n,
+            "prepareFor": prepare_for,
+            "reactTo": react_to,
+            "mixers": mixers,
+            "blitzLooks": blitz_looks,
+            "pressurePct": round(blitz_n/n*100) if n else 0,
+            "pressureN": blitz_n,
+        }
+
+    form_groups_sorted = sorted(form_groups.items(), key=lambda kv: -len(kv[1]))
+    nd_formation_breakdown = [
+        {"form": f, **prm_group(grp)}
+        for f, grp in form_groups_sorted if len(grp) >= MIN_FORM_N
+    ]
+    small_sample_groups = [(f, grp) for f, grp in form_groups_sorted if len(grp) < MIN_FORM_N]
+    nd_formation_small_sample = None
+    if small_sample_groups:
+        small_n = sum(len(grp) for _, grp in small_sample_groups)
+        nd_formation_small_sample = {
+            "forms": [f for f, _ in small_sample_groups],
+            "count": len(small_sample_groups),
+            "n": small_n,
+        }
+
     return {
         "n": total,
         "overallCoverage": overall_coverage,
@@ -636,6 +797,8 @@ def compute_bible(rows, allowed_games=None):
         "coverageByDefPers": coverage_by_def_pers,
         "coverageByPersByFront": coverage_by_pers_by_front,
         "coverageToFormFamily": coverage_to_form_family,
+        "ndFormationBreakdown": nd_formation_breakdown,
+        "ndFormationSmallSample": nd_formation_small_sample,
     }
 
 RZ_ZONE_DEFS = [
@@ -762,6 +925,9 @@ def compute_rz(rows):
     this is a from-scratch, fully data-driven build (no hand-authored zone
     boundaries or narrative -- everything below is computed from real rows).
     Returns None if there's no RZ data at all yet."""
+    RZ_MIXER_MIN_COUNT = 2
+    RZ_BLITZ_LOOK_MIN = 2
+
     zones = []
     for key, label, cls, lo, hi in RZ_ZONE_DEFS:
         sub = [r for r in rows if field_pos(r) is not None and lo <= field_pos(r) <= hi]
@@ -772,14 +938,23 @@ def compute_rz(rows):
         blitz_n = len(blitz_sub)
         five_n, _ = compute_pressure_schemes(blitz_sub, 5, blitz_n) if blitz_n else (0, [])
         six_n, _ = compute_pressure_schemes(blitz_sub, 6, blitz_n) if blitz_n else (0, [])
+        cov_top = topN_pct(cov_c, n, n=4)
+        blitz_look_c = Counter(upper(r.get('Blitz')) for r in blitz_sub if upper(r.get('Blitz')))
         zones.append({
             "key": key, "label": label, "cls": cls, "n": n,
             "front": topN_pct(front_c, n, n=4),
-            "coverage": topN_pct(cov_c, n, n=4),
+            "coverage": cov_top,
             "blitzCount": blitz_n, "blitzPct": round(blitz_n/n*100) if n else 0,
             "fiveManPct": round(five_n/blitz_n*100) if blitz_n else 0,
             "sixManPct": round(six_n/blitz_n*100) if blitz_n else 0,
             "situational": _rz_situational(sub),
+            # PREPARE FOR / REACT TO / MIXERS / PRESSURE breakdown, same shape and
+            # same tunable thresholds as compute_bible()'s ndFormationBreakdown --
+            # see the comment there for why these two knobs exist.
+            "prepareFor": cov_top[0] if len(cov_top) > 0 else None,
+            "reactTo": cov_top[1] if len(cov_top) > 1 else None,
+            "mixers": [c for c in cov_top[2:4] if c["count"] >= RZ_MIXER_MIN_COUNT],
+            "blitzLooks": topN_pct(blitz_look_c, blitz_n, n=2, min_count=RZ_BLITZ_LOOK_MIN) if blitz_n else [],
         })
 
     total_n = sum(z["n"] for z in zones)
@@ -858,6 +1033,18 @@ CD_SPLIT_DEFS = [
 # CD/RZ/TM/FM all still pull from every game -- this restriction is Bible-only.
 BIBLE_GAME_ALLOWLIST = {
     "VMI": ["vs Princeton", "vs Pennsylvania", "vs Dartmouth", "vs Columbia"],
+    # Per Matt's 2026-08-28 direction: only these 7 ODU games were fully charted
+    # for normal-downs/open-field snaps -- the other 6 (Indiana, NC Central,
+    # Liberty, Coastal Carolina, Georgia State, Georgia Southern) only got 3rd
+    # down, RZ, 2-min EOG/EOH, and 4-min situational snaps charted.
+    "ODU": ["vs Virginia Tech", "vs Marshall", "vs James Madison", "vs Louisiana-Monroe",
+            "vs South Florida", "vs Appalachian State", "vs Troy"],
+    # Per Matt's 2026-08-28 direction: only these 6 Maryland games were fully
+    # charted for normal-downs/open-field snaps -- the other 6 (Northern
+    # Illinois, UCLA, Wisconsin, Florida Atlantic, Nebraska, Towson) only got
+    # RZ, 3rd down, 2-min EOH/EOG, and 4-min situational snaps charted.
+    "MARYLAND": ["vs Washington", "vs Michigan", "vs Indiana", "vs Illinois",
+                 "vs Michigan State", "vs Rutgers"],
 }
 
 def compute_gl_detail(rows):
@@ -1003,6 +1190,7 @@ def main():
         "bible": compute_bible(nd_rows, allowed_games=BIBLE_GAME_ALLOWLIST.get(team)),
         "rz": compute_rz(rows),
         "gl": compute_gl_detail(rows),
+        "runTab": compute_run_tab(rows),
     }
     print(json.dumps(result, indent=2))
 
