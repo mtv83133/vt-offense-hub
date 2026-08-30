@@ -1032,7 +1032,11 @@ CD_SPLIT_DEFS = [
 # and 2-min/4-min situational snaps charted, not a complete normal-downs sample).
 # CD/RZ/TM/FM all still pull from every game -- this restriction is Bible-only.
 BIBLE_GAME_ALLOWLIST = {
-    "VMI": ["vs Princeton", "vs Pennsylvania", "vs Dartmouth", "vs Columbia"],
+    # "vs Idaho State" added 2026-08-30: VMI's own real 2026 season-opener game
+    # (not a Cornell proxy game like the other four) -- confirmed all 53 of its
+    # down-1/2 rows are fully charted (FinalForm+CoverFamily+Front Family all
+    # populated), same completeness bar as the proxy games below.
+    "VMI": ["vs Princeton", "vs Pennsylvania", "vs Dartmouth", "vs Columbia", "vs Idaho State"],
     # Per Matt's 2026-08-28 direction: only these 7 ODU games were fully charted
     # for normal-downs/open-field snaps -- the other 6 (Indiana, NC Central,
     # Liberty, Coastal Carolina, Georgia State, Georgia Southern) only got 3rd
