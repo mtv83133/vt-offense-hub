@@ -73,8 +73,49 @@ def distance_of(row):
     except (ValueError, TypeError):
         return None
 
-def is_blitz(row):
+def _has_blitz_tag(row):
     return bool(norm(row.get('Blitz')))
+
+def rusher_count_of(row):
+    """Parsed int RUSHERS value, or None if blank/unparseable."""
+    try:
+        return int(norm(row.get('RUSHERS')))
+    except (TypeError, ValueError):
+        return None
+
+def is_blitz(row):
+    """TRUE BLITZ: Blitz field charted AND 5 or more rushers sent. Redefined
+    2026-08-30 per Matt -- previously ANY non-blank Blitz field counted as a
+    'blitz' regardless of rusher count, which silently folded simulated/show
+    pressures (4-or-fewer rushers, still tagged with a Blitz look/name) into
+    the blitz rate. See is_sim_pressure for the complementary <=4-rusher
+    bucket and is_pressure for the combined (either) total -- 'Pressure'-
+    labeled UI elements (RZ zone cards' PRM Pressure row, Bible's Normal
+    Downs Formation Breakdown Pressure row) intentionally use is_pressure,
+    not this narrower is_blitz, so their meaning doesn't silently change."""
+    if not _has_blitz_tag(row):
+        return False
+    rc = rusher_count_of(row)
+    return rc is not None and rc >= 5
+
+def is_sim_pressure(row):
+    """SIMULATED/SHOW PRESSURE: Blitz field charted but 4 or fewer rushers
+    sent (a pressure look/disguise without actually sending an extra rusher).
+    Companion to is_blitz -- see that docstring for the 2026-08-30
+    redefinition context. A blank/unparseable RUSHERS value on a Blitz-
+    tagged row is conservatively bucketed here (not as a true blitz), so
+    is_blitz-count + is_sim_pressure-count always equals is_pressure-count."""
+    if not _has_blitz_tag(row):
+        return False
+    rc = rusher_count_of(row)
+    return rc is None or rc <= 4
+
+def is_pressure(row):
+    """TOTAL PRESSURE: any Blitz-tagged row, true blitz or sim pressure
+    alike. This is what is_blitz used to mean before the 2026-08-30
+    redefinition -- kept as its own function so already-generic 'Pressure'-
+    labeled UI elements keep their original (combined) meaning."""
+    return _has_blitz_tag(row)
 
 def is_stunt(row):
     return bool(norm(row.get('Stunt')))
@@ -385,6 +426,8 @@ def compute_bucket(rows):
             "pressureSeven": [], "pressureSevenN": 0,
             "blitzByPersonnel": [], "coverageOnBlitz": [], "frontOnBlitz": [],
             "frontsByPersonnel": [], "coverageByPersonnel": [],
+            "simPressureCount": 0, "simPressurePct": 0, "simPressurePackages": [],
+            "totalPressureCount": 0, "totalPressurePct": 0,
         }
 
     # ---- Formation Tendencies table ----
@@ -422,12 +465,26 @@ def compute_bucket(rows):
     cov_fam_c = Counter(upper(r.get('CoverFamily')) for r in rows)
     cov_family = topN_pct(cov_fam_c, total, n=8)
 
-    # ---- Blitz rate + RB tendency ----
+    # ---- Blitz rate + RB tendency (blitz = 5+ rushers, redefined 2026-08-30) ----
     blitz_rows = [r for r in rows if is_blitz(r)]
     blitz_count = len(blitz_rows)
     blitz_pct = round(blitz_count/total*100) if total else 0
     rb_c = Counter(upper(r.get('RBTENDBLITZ')) for r in blitz_rows)
     rb_tendency = topN_pct(rb_c, blitz_count, n=5)
+
+    # ---- Simulated/show pressure (<=4 rushers, Blitz field charted) + Total
+    # Pressure (blitz + sim pressure combined) -- new 2026-08-30 per Matt, so
+    # a sim pressure look isn't silently counted as a real blitz anymore, but
+    # the combined rate is still available since coaches care about total
+    # pressure looks too, not just true blitzes. ----
+    sim_rows = [r for r in rows if is_sim_pressure(r)]
+    sim_count = len(sim_rows)
+    sim_pct = round(sim_count/total*100) if total else 0
+    sim_pkg_c = Counter(upper(r.get('Blitz')) for r in sim_rows if upper(r.get('Blitz')))
+    sim_packages = topN_pct(sim_pkg_c, sim_count, n=8)
+
+    total_pressure_count = blitz_count + sim_count
+    total_pressure_pct = round(total_pressure_count/total*100) if total else 0
 
     # ---- Pressure direction cards (Internal/Field/Dbl Edge/Boundary) ----
     pcards = compute_pcards(blitz_rows)
@@ -508,6 +565,9 @@ def compute_bucket(rows):
         "frontOnBlitz": front_on_blitz,
         "frontsByPersonnel": fronts_by_personnel,
         "coverageByPersonnel": coverage_by_personnel,
+        "simPressureCount": sim_count, "simPressurePct": sim_pct,
+        "simPressurePackages": sim_packages,
+        "totalPressureCount": total_pressure_count, "totalPressurePct": total_pressure_pct,
     }
 
 def compute_down_splits(rows, defs):
@@ -756,7 +816,12 @@ def compute_bible(rows, allowed_games=None):
         prepare_for = cov_top[0] if len(cov_top) > 0 else None
         react_to = cov_top[1] if len(cov_top) > 1 else None
         mixers = [c for c in cov_top[2:4] if c["count"] >= MIXER_MIN_COUNT]
-        blitz_sub = [r for r in sub if is_blitz(r)]
+        # PRESSURE row uses TOTAL pressure (is_pressure: blitz + sim pressure
+        # combined), not the narrower 5+-rusher is_blitz -- this card is
+        # already generically labeled "Pressure", not "Blitz Rate", so it
+        # keeps its original (combined) meaning after the 2026-08-30
+        # blitz/sim-pressure split (see is_pressure's docstring).
+        blitz_sub = [r for r in sub if is_pressure(r)]
         blitz_n = len(blitz_sub)
         blitz_c = Counter(upper(r.get('Blitz')) for r in blitz_sub if upper(r.get('Blitz')))
         blitz_looks = topN_pct(blitz_c, blitz_n, n=2, min_count=BLITZ_LOOK_MIN) if blitz_n else []
@@ -939,12 +1004,22 @@ def compute_rz(rows):
         five_n, _ = compute_pressure_schemes(blitz_sub, 5, blitz_n) if blitz_n else (0, [])
         six_n, _ = compute_pressure_schemes(blitz_sub, 6, blitz_n) if blitz_n else (0, [])
         cov_top = topN_pct(cov_c, n, n=4)
-        blitz_look_c = Counter(upper(r.get('Blitz')) for r in blitz_sub if upper(r.get('Blitz')))
+        # Sim pressure (<=4 rushers) + total pressure (blitz+sim), 2026-08-30
+        # per Matt. "Pressure" row in the zone card's PRM block below reads
+        # this TOTAL pressure via the pressurePct/pressureN keys (prm_rows()
+        # prefers those over blitzPct/blitzCount) -- blitzCount/blitzPct
+        # stay narrow (5+ only) for the top-of-tab "RZ Blitz Rate" pcard and
+        # the five/sixManPct calcs above.
+        pressure_sub = [r for r in sub if is_pressure(r)]
+        pressure_n = len(pressure_sub)
+        blitz_look_c = Counter(upper(r.get('Blitz')) for r in pressure_sub if upper(r.get('Blitz')))
         zones.append({
             "key": key, "label": label, "cls": cls, "n": n,
             "front": topN_pct(front_c, n, n=4),
             "coverage": cov_top,
             "blitzCount": blitz_n, "blitzPct": round(blitz_n/n*100) if n else 0,
+            "simPressureCount": pressure_n - blitz_n, "simPressurePct": round((pressure_n-blitz_n)/n*100) if n else 0,
+            "pressureN": pressure_n, "pressurePct": round(pressure_n/n*100) if n else 0,
             "fiveManPct": round(five_n/blitz_n*100) if blitz_n else 0,
             "sixManPct": round(six_n/blitz_n*100) if blitz_n else 0,
             "situational": _rz_situational(sub),
@@ -954,13 +1029,14 @@ def compute_rz(rows):
             "prepareFor": cov_top[0] if len(cov_top) > 0 else None,
             "reactTo": cov_top[1] if len(cov_top) > 1 else None,
             "mixers": [c for c in cov_top[2:4] if c["count"] >= RZ_MIXER_MIN_COUNT],
-            "blitzLooks": topN_pct(blitz_look_c, blitz_n, n=2, min_count=RZ_BLITZ_LOOK_MIN) if blitz_n else [],
+            "blitzLooks": topN_pct(blitz_look_c, pressure_n, n=2, min_count=RZ_BLITZ_LOOK_MIN) if pressure_n else [],
         })
 
     total_n = sum(z["n"] for z in zones)
     if total_n == 0:
         return None
     total_blitz = sum(z["blitzCount"] for z in zones)
+    total_pressure = sum(z["pressureN"] for z in zones)
 
     gl = next(z for z in zones if z["key"] == "gl")
     top_cov_gl = gl["coverage"][0] if gl["coverage"] else None
@@ -1003,6 +1079,8 @@ def compute_rz(rows):
         "n": total_n,
         "blitzPct": round(total_blitz/total_n*100) if total_n else 0,
         "blitzCount": total_blitz,
+        "totalPressurePct": round(total_pressure/total_n*100) if total_n else 0,
+        "totalPressureCount": total_pressure,
         "zones": zones,
         "topCoverageGL": top_cov_gl,
         "topFrontGL": top_front_gl,
@@ -1051,7 +1129,7 @@ BIBLE_GAME_ALLOWLIST = {
                  "vs Michigan State", "vs Rutgers"],
 }
 
-def compute_gl_detail(rows):
+def compute_gl_detail(rows, team=None):
     """Standalone Goal Line tab (#sec-gl / tmpl-gl-<TEAM>) -- a richer,
     down-split view of the same Goal Line zone (field_pos 1-3) already
     surfaced as one of the 3 zone cards in compute_rz(). This is a SEPARATE
@@ -1105,16 +1183,29 @@ def compute_gl_detail(rows):
         else:
             top_fronts = '--'
         gb = sum(1 for r in grp if is_blitz(r))
+        gp = sum(1 for r in grp if is_pressure(r))
         by_down.append({
             "label": f"{label} (n={gn})", "topFront": top_fronts,
             "blitzPct": round(gb/gn*100) if gn else 0,
+            "pressurePct": round(gp/gn*100) if gn else 0,
         })
 
+    # Blitz = 5+ rushers, Sim Pressure = <=4 rushers (Blitz field still
+    # charted), Total Pressure = either -- redefined 2026-08-30 per Matt, so
+    # a sim/show pressure look isn't silently folded into the blitz rate.
     blitz_sub = [r for r in sub if is_blitz(r)]
     blitz_n = len(blitz_sub)
     five_n, five_pkgs = compute_pressure_schemes(blitz_sub, 5, blitz_n) if blitz_n else (0, [])
     six_n, six_pkgs = compute_pressure_schemes(blitz_sub, 6, blitz_n) if blitz_n else (0, [])
     seven_n, seven_pkgs = compute_pressure_schemes(blitz_sub, 7, blitz_n) if blitz_n else (0, [])
+
+    sim_sub = [r for r in sub if is_sim_pressure(r)]
+    sim_n = len(sim_sub)
+    sim_pkg_c = Counter(upper(r.get('Blitz')) for r in sim_sub if upper(r.get('Blitz')))
+    sim_pkgs = topN_pct(sim_pkg_c, sim_n, n=8)
+
+    total_pressure_n = blitz_n + sim_n
+    total_pressure_pct = round(total_pressure_n/n*100) if n else 0
 
     # Data-driven package-dominance callout (replaces the old hand-typed
     # "M WRAP (6-man) is the only blitz package used" sentence -- confirmed
@@ -1139,6 +1230,35 @@ def compute_gl_detail(rows):
             man_note = f'Every Goal Line pressure look is {only_man}-man ({blitz_n} of {blitz_n}).'
             pkg_callout = f'{pkg_callout} {man_note}' if pkg_callout else man_note
 
+    # Data-driven narrative summary sentence, restored 2026-08-30 per Matt's
+    # request -- the old standalone GL tab (pre-2026-08-27) opened with a
+    # hand-typed prose sentence ("Cornell faced 9 Goal Line possessions last
+    # season...") that was removed because it had drifted out of sync with
+    # the real numbers (see the function docstring above). This rebuilds
+    # that same narrative STYLE, but generated entirely from the current
+    # front_family/coverage/by_down/blitz values computed above, so it can
+    # never silently go stale the way the old hand-typed sentence did.
+    narrative = None
+    if n:
+        team_label = team or "This opponent"
+        plays_word = "possession" if n == 1 else "possessions"
+        top_front = front_family[0] if front_family else None
+        top_cov = coverage[0] if coverage else None
+        peak_down = max(by_down, key=lambda d: d["blitzPct"]) if by_down else None
+        sentence = f"{team_label} has faced {n} Goal Line {plays_word} across the charted games"
+        if top_front:
+            sentence += f", leaning on {top_front['label']} front ({top_front['pct']}% of snaps)"
+        if top_cov:
+            sentence += f" and {top_cov['label']} coverage ({top_cov['pct']}%)"
+        sentence += f". Blitz rate (5+ rushers) at the Goal Line is {round(blitz_n/n*100) if n else 0}%"
+        if peak_down and len(by_down) > 1:
+            down_name = peak_down["label"].split(" (")[0]
+            sentence += f", peaking on {down_name} ({peak_down['blitzPct']}%)"
+        if sim_n:
+            sentence += f". Total pressure -- blitzes plus {sim_n} simulated/show pressure look{'s' if sim_n != 1 else ''} -- climbs to {total_pressure_pct}%"
+        sentence += "."
+        narrative = sentence
+
     return {
         "n": n,
         "frontFamily": front_family,
@@ -1148,7 +1268,94 @@ def compute_gl_detail(rows):
         "fiveManN": five_n, "fivePkgs": five_pkgs,
         "sixManN": six_n, "sixPkgs": six_pkgs,
         "sevenManN": seven_n, "sevenPkgs": seven_pkgs,
+        "simPressureN": sim_n, "simPressurePkgs": sim_pkgs,
+        "totalPressureN": total_pressure_n, "totalPressurePct": total_pressure_pct,
+        "narrative": narrative,
         "pkgCallout": pkg_callout,
+    }
+
+
+# ── Man vs Zone coverage totals ─────────────────────────────────────────────
+# Added 2026-08-31 per Matt's direct request: "add coverage man vs zone %
+# totals for ND/CD/RZ/2MIN/4MIN & overall, determined off Coverage Family
+# column". Classification rule confirmed explicitly with Matt (not guessed):
+#
+#   1. Strip a leading "1"/"2" digit prefix and a trailing " MAX" suffix off
+#      CoverFamily to get its base family. MAX is a technique modifier, not a
+#      classification override -- Matt confirmed "HM = HIGH MAN so 1HM MAX or
+#      2HM MAX will still be MAN", and separately confirmed ZERO MAX is also
+#      Man for the same base-family-wins reason.
+#   2. Zone base families: QTRS, HZ, HZP, SSFZ, SSZP, SSZ.
+#   3. Man base families: ZERO, HM, HMP, BRACKETS.
+#   4. Anything else (blank, 'NO PLAY', 'T.O.', 'PEN', 'AFU', 'VIC', '*', or
+#      any future untagged value) is excluded from both totals, not silently
+#      folded into either bucket -- report it, don't guess.
+#
+# '1HP' is a confirmed data-entry typo for '1HMP' (single play: 2025 Cornell
+# (NY) D 07 vs Princeton, Play 053, 3rd & 2 from VMI's own 23, Coverage
+# listed as "1 BLITZ") -- fixed at the source in the corrected VMI CSV
+# ("... - 1HP fix.csv"), NOT handled as a special case here. If a future
+# opponent's raw export ever has an '1HP'-style value, that's the same kind
+# of typo and should be corrected at the source the same way, not silently
+# reclassified in code.
+ZONE_BASE_FAMILIES = {'QTRS', 'HZ', 'HZP', 'SSFZ', 'SSZP', 'SSZ'}
+MAN_BASE_FAMILIES = {'ZERO', 'HM', 'HMP', 'BRACKETS'}
+
+def cover_base_family(cover_family):
+    """Strip a leading 1/2 digit and trailing ' MAX' to get the base family
+    used for Man/Zone classification. E.g. '1HZ MAX' -> 'HZ', '2HM' -> 'HM',
+    'ZERO MAX' -> 'ZERO', 'QTRS' -> 'QTRS'."""
+    v = upper(cover_family)
+    v = re.sub(r'\s+MAX$', '', v)
+    v = re.sub(r'^[12]', '', v)
+    return v
+
+def man_zone_of(row):
+    """Returns 'man', 'zone', or None (excluded -- not a real coverage tag,
+    or a base family not yet mapped) for one row's CoverFamily."""
+    base = cover_base_family(row.get('CoverFamily'))
+    if base in ZONE_BASE_FAMILIES:
+        return 'zone'
+    if base in MAN_BASE_FAMILIES:
+        return 'man'
+    return None
+
+def compute_man_zone_bucket(rows):
+    """One bucket's Man/Zone split + the list of any unmapped CoverFamily
+    values encountered (so a genuinely new tag surfaces instead of silently
+    vanishing from the total)."""
+    man = zone = 0
+    excluded = Counter()
+    for r in rows:
+        cf_raw = norm(r.get('CoverFamily'))
+        result = man_zone_of(r)
+        if result == 'man':
+            man += 1
+        elif result == 'zone':
+            zone += 1
+        elif cf_raw:  # non-blank but unmapped -- worth surfacing, blanks aren't
+            excluded[cf_raw] += 1
+    n = man + zone
+    return {
+        "n": n,
+        "man": man, "zone": zone,
+        "manPct": round(man / n * 100) if n else 0,
+        "zonePct": round(zone / n * 100) if n else 0,
+        "unmapped": [{"value": v, "n": c} for v, c in sorted(excluded.items(), key=lambda kv: -kv[1])],
+    }
+
+def compute_man_zone(nd_rows, cd_rows, rz_rows, tm_rows, fm_rows, all_rows):
+    """Man vs Zone coverage totals for ND/CD/RZ/2-Min(TM)/4-Min(FM)/Overall.
+    RZ uses the full (not down-restricted) row set filtered to is_red_zone,
+    matching compute_rz()'s own scope. Overall uses every clean/deduped row
+    (same 'rows' main() already builds for every other tab)."""
+    return {
+        "nd": compute_man_zone_bucket(nd_rows),
+        "cd": compute_man_zone_bucket(cd_rows),
+        "rz": compute_man_zone_bucket([r for r in rz_rows if is_red_zone(r)]),
+        "tm": compute_man_zone_bucket(tm_rows),
+        "fm": compute_man_zone_bucket(fm_rows),
+        "overall": compute_man_zone_bucket(all_rows),
     }
 
 def main():
@@ -1193,8 +1400,9 @@ def main():
         "secondaryBreakpoint": find_secondary_breakpoint(rows),
         "bible": compute_bible(nd_rows, allowed_games=BIBLE_GAME_ALLOWLIST.get(team)),
         "rz": compute_rz(rows),
-        "gl": compute_gl_detail(rows),
+        "gl": compute_gl_detail(rows, team=team),
         "runTab": compute_run_tab(rows),
+        "manZone": compute_man_zone(nd_rows, cd_rows, rows, tm_eog_rows + tm_eoh_rows, fm_rows, rows),
     }
     print(json.dumps(result, indent=2))
 
