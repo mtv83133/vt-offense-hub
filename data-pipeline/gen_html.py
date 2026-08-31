@@ -73,6 +73,13 @@ def blitz_callout(bucket, label, danger=True):
     return (f'<div class="callout {cls}"><strong>{bucket["blitzPct"]}% Blitz Rate</strong> on {label} '
             f'({bucket["blitzCount"]}/{bucket["n"]} plays)</div>')
 
+def total_pressure_callout(bucket, label):
+    """Companion stat to blitz_callout, added 2026-08-30 per Matt's blitz vs
+    sim-pressure redefinition -- Blitz Rate now only counts 5+ rushers, so
+    this shows the combined (blitz + sim/show pressure) rate alongside it."""
+    return (f'<div class="callout info"><strong>{bucket["totalPressurePct"]}% Total Pressure</strong> on {label} '
+            f'({bucket["totalPressureCount"]}/{bucket["n"]} plays -- blitz + sim/show pressure)</div>')
+
 def formation_bar_canvas(canvas_id):
     return f'<div class="ch-lg"><canvas id="{canvas_id}"></canvas></div>'
 
@@ -423,13 +430,25 @@ def build_blitz_panel(bucket, label, id_prefix, down_label="", plays_header="Pla
               </table>
             </div>'''
 
+    sim_card = ""
+    if bucket.get("simPressurePackages"):
+        sim_card = f'''<div class="card mb14">
+              <div class="card-hd">Simulated Pressures Used ({bucket["simPressureCount"]} sim/show looks, &le;4 rushers)</div>
+              <table class="tbl">
+                <thead><tr><th>Package</th><th>#</th><th>% of Sim Pressure</th></tr></thead>
+                <tbody>
+                  {scheme_table(bucket["simPressurePackages"], bucket["simPressureCount"])}
+                </tbody>
+              </table>
+            </div>'''
+
     pcards_block = ""
     if bucket["pcards"]:
         pcards_block = f'''<div class="g4 mb14">
           {pcards_html(bucket["pcards"], bucket["blitzCount"])}
         </div>'''
 
-    left_col = "\n            ".join(c for c in [five_card, six_card, seven_card] if c)
+    left_col = "\n            ".join(c for c in [five_card, six_card, seven_card, sim_card] if c)
     right_col = "\n            ".join(c for c in [rb_card, personnel_card, cov_blitz_card] if c)
     two_col_row = ""
     if left_col or right_col:
@@ -453,6 +472,7 @@ def build_blitz_panel(bucket, label, id_prefix, down_label="", plays_header="Pla
       <div class="stcon" id="{id_prefix}-blitz">
         <div class="print-label">{label} — Blitz</div>
         {blitz_callout(bucket, label)}
+        {total_pressure_callout(bucket, label)}
         {pcards_block}
         {two_col_row}
         {bottom_row}
@@ -613,12 +633,67 @@ def rz_situational_rows(situational):
         for s in situational
     )
 
+def prm_pressure_class(pct):
+    if pct >= 40: return "prm-p-hi"
+    if pct >= 20: return "prm-p-mid"
+    return "prm-p-lo"
+
+def prm_entry_str(entry):
+    if not entry:
+        return '<span class="prm-none">—</span>'
+    return f'{esc(entry["label"])} <span class="prm-pct">{entry["pct"]}%</span>'
+
+def prm_mixers_str(mixers, blitz_looks):
+    parts = [f'{esc(m["label"])} ({m["pct"]}%)' for m in (mixers or [])]
+    parts += [f'{esc(b["label"])} ({b["count"]}x)' for b in (blitz_looks or [])]
+    return ' · '.join(parts) if parts else '<span class="prm-none">—</span>'
+
+def prm_rows(group):
+    """PREPARE FOR / REACT TO / MIXERS / PRESSURE, shared by the ND Formation
+    Breakdown (Bible tab) and RZ zone cards -- both compute_bible()'s
+    ndFormationBreakdown entries and compute_rz()'s zone dicts carry
+    prepareFor/reactTo/mixers/blitzLooks, differing only in the pressure-rate
+    key name (pressurePct vs blitzPct)."""
+    pressure_pct = group.get("pressurePct", group.get("blitzPct", 0))
+    pressure_n = group.get("pressureN", group.get("blitzCount", 0))
+    return f'''<div class="prm-mini">
+        <div class="prm-row"><span class="prm-lbl">Prepare For</span><span class="prm-val">{prm_entry_str(group.get("prepareFor"))}</span></div>
+        <div class="prm-row"><span class="prm-lbl">React To</span><span class="prm-val">{prm_entry_str(group.get("reactTo"))}</span></div>
+        <div class="prm-row"><span class="prm-lbl">Mixers</span><span class="prm-val prm-mixers">{prm_mixers_str(group.get("mixers"), group.get("blitzLooks"))}</span></div>
+        <div class="prm-row"><span class="prm-lbl">Pressure</span><span class="prm-val prm-pressure {prm_pressure_class(pressure_pct)}">{pressure_pct}% <span class="prm-pn">({pressure_n}/{group["n"]})</span></span></div>
+      </div>'''
+
+def prm_card(title, group):
+    return f'''<div class="prm-card">
+        <div class="prm-hd"><span class="prm-title">{esc(title)}</span><span class="prm-n">{group["n"]} snaps</span></div>
+        {prm_rows(group)}
+      </div>'''
+
+def build_nd_formation_breakdown(items, small_sample=None):
+    """Normal Downs Breakdown by Formation -- the staff's 'Michigan Breakdown'-
+    style PREPARE FOR/REACT TO/MIXERS/PRESSURE cards, one per FinalForm formation
+    group. Sits inside the Bible tab's .bib-cols grid, spanning the full width.
+    Formations below MIN_FORM_N (compute_bible()) are rolled into a single
+    small-sample note rather than cluttering the grid with 1-2-snap cards."""
+    if not items:
+        return ''
+    cards = "".join(prm_card(it["form"], it) for it in items)
+    small_html = ""
+    if small_sample and small_sample.get("count"):
+        forms_str = ", ".join(esc(f) for f in small_sample["forms"])
+        small_html = (
+            f'<div class="prm-small-note">+ {small_sample["count"]} more formation'
+            f'{"s" if small_sample["count"] != 1 else ""} with fewer than 3 charted snaps '
+            f'({small_sample["n"]} plays total): {forms_str}</div>'
+        )
+    return f'''<div class="card bib-card2" style="grid-column:1/-1">
+        <div class="card-hd">Normal Downs Breakdown by Formation</div>
+        <div class="prm-grid">{cards}</div>
+        {small_html}
+      </div>'''
+
 def build_rz_zcard(z):
     front_str = rz_family_str(z["front"])
-    cov_str = rz_family_str(z["coverage"])
-    blitz_str = f'<strong>Blitz: {z["blitzPct"]}%</strong> ({z["blitzCount"]}/{z["n"]})'
-    if z["blitzCount"]:
-        blitz_str += f' · 5-Man {z["fiveManPct"]}% · 6-Man {z["sixManPct"]}%'
     sit_table = (
         '<table class="tbl mt8"><thead><tr><th>Down</th><th>Plays</th><th>Blitz%</th></tr></thead>'
         f'<tbody>{rz_situational_rows(z["situational"])}</tbody></table>'
@@ -626,8 +701,7 @@ def build_rz_zcard(z):
     return f'''<div class="zcard {z["cls"]}">
           <div class="zhd">{esc(z["label"])} — {z["n"]} plays</div>
           <div class="txt-sm mb8"><strong>Front:</strong> {front_str}</div>
-          <div class="txt-sm mb8"><strong>Coverage:</strong> {cov_str}</div>
-          <div class="txt-sm mb8">{blitz_str}</div>
+          {prm_rows(z)}
           {sit_table}
         </div>'''
 
@@ -644,6 +718,14 @@ def build_rz_section(rz):
     cards = [
         f'<div class="pcard int"><div class="ppct">{rz["blitzPct"]}%</div><div class="plbl">RZ Blitz Rate</div><div class="pcnt">{rz["blitzCount"]}/{rz["n"]} plays</div></div>',
     ]
+    if "totalPressurePct" in rz:
+        # Companion stat added 2026-08-30 per Matt's blitz vs. sim-pressure
+        # redefinition -- RZ Blitz Rate above is now 5+ rushers only, this
+        # shows the combined (blitz + sim/show pressure) rate beside it.
+        cards.append(
+            f'<div class="pcard int"><div class="ppct">{rz["totalPressurePct"]}%</div>'
+            f'<div class="plbl">RZ Total Pressure %</div><div class="pcnt">{rz["totalPressureCount"]}/{rz["n"]} plays</div></div>'
+        )
     if rz["topCoverageGL"]:
         cards.append(
             f'<div class="pcard fld"><div class="ppct">{rz["topCoverageGL"]["pct"]}%</div>'
@@ -692,9 +774,19 @@ def build_gl_section(gl):
     if not gl:
         return '''<div class="callout info"><strong>No Goal Line data available for this opponent yet.</strong> This section will populate automatically once Goal Line snaps are charted.</div>'''
 
-    callout_html = ""
+    # Combined into a single callout bubble (not two stacked ones) per Matt's
+    # 2026-08-30 request -- the narrative summary sentence and the KEY
+    # package-dominance line both belong together, just as two sentences in
+    # one box rather than two separate colored callouts.
+    narrative_bits = []
+    if gl.get("narrative"):
+        narrative_bits.append(f'<strong>KEY:</strong> {esc(gl["narrative"])}')
     if gl["pkgCallout"]:
-        callout_html = f'<div class="callout danger"><strong>KEY:</strong> {esc(gl["pkgCallout"])}</div>'
+        narrative_bits.append(esc(gl["pkgCallout"]))
+
+    narrative_html = ""
+    if narrative_bits:
+        narrative_html = f'<div class="callout danger mb14">{"<br>".join(narrative_bits)}</div>'
 
     front_rows = "".join(
         f'<tr><td>{esc(f["label"])}</td><td>{f["count"]}</td><td>{f["pct"]}%</td></tr>'
@@ -720,7 +812,16 @@ def build_gl_section(gl):
     if not blitz_pkg_rows:
         blitz_pkg_rows = '<tr><td colspan="3" style="text-align:center;color:var(--muted)">No blitz plays charted yet</td></tr>'
 
-    return f'''{callout_html}
+    # Simulated/show pressure packages (<=4 rushers, Blitz field charted) --
+    # separate table from true blitz packages, added 2026-08-30 per Matt's
+    # blitz vs. sim-pressure redefinition.
+    sim_pkg_rows = pkg_rows(gl.get("simPressurePkgs", []))
+    if not sim_pkg_rows:
+        sim_pkg_rows = '<tr><td colspan="3" style="text-align:center;color:var(--muted)">No simulated pressure looks charted yet</td></tr>'
+    sim_n = gl.get("simPressureN", 0)
+    sim_pct = round(sim_n/gl["n"]*100) if gl["n"] else 0
+
+    return f'''{narrative_html}
       <div class="g3">
         <div class="card">
           <div class="card-hd">Front Families</div>
@@ -733,15 +834,19 @@ def build_gl_section(gl):
           <table class="tbl"><thead><tr><th>Coverage</th><th>#</th><th>%</th></tr></thead><tbody>{cov_rows}</tbody></table>
         </div>
         <div class="card">
-          <div class="card-hd">Blitz Summary</div>
+          <div class="card-hd">Pressure Summary</div>
           <table class="tbl"><thead><tr><th>Package</th><th>Plays</th><th>%</th></tr></thead><tbody>
-            <tr><td>Total 5-Man+</td><td>{gl["blitzCount"]} of {gl["n"]}</td><td>{gl["blitzPct"]}%</td></tr>
-            <tr><td>5-Man</td><td>{gl["fiveManN"]}</td><td>{round(gl["fiveManN"]/gl["blitzCount"]*100) if gl["blitzCount"] else 0}%</td></tr>
-            <tr><td>6-Man</td><td>{gl["sixManN"]}</td><td>{round(gl["sixManN"]/gl["blitzCount"]*100) if gl["blitzCount"] else 0}%</td></tr>
-            <tr><td>7-Man</td><td>{gl["sevenManN"]}</td><td>{round(gl["sevenManN"]/gl["blitzCount"]*100) if gl["blitzCount"] else 0}%</td></tr>
+            <tr><td><strong>Total Pressure</strong></td><td>{gl.get("totalPressureN", gl["blitzCount"])} of {gl["n"]}</td><td>{gl.get("totalPressurePct", gl["blitzPct"])}%</td></tr>
+            <tr><td>Blitz (5+ Rushers)</td><td>{gl["blitzCount"]} of {gl["n"]}</td><td>{gl["blitzPct"]}%</td></tr>
+            <tr><td style="padding-left:16px">— 5-Man</td><td>{gl["fiveManN"]}</td><td>{round(gl["fiveManN"]/gl["blitzCount"]*100) if gl["blitzCount"] else 0}%</td></tr>
+            <tr><td style="padding-left:16px">— 6-Man</td><td>{gl["sixManN"]}</td><td>{round(gl["sixManN"]/gl["blitzCount"]*100) if gl["blitzCount"] else 0}%</td></tr>
+            <tr><td style="padding-left:16px">— 7-Man</td><td>{gl["sevenManN"]}</td><td>{round(gl["sevenManN"]/gl["blitzCount"]*100) if gl["blitzCount"] else 0}%</td></tr>
+            <tr><td>Sim/Show Pressure (&le;4 Rushers)</td><td>{sim_n} of {gl["n"]}</td><td>{sim_pct}%</td></tr>
           </tbody></table>
           <div class="mt8 card-hd">Blitz Packages Used</div>
           <table class="tbl"><thead><tr><th>Package</th><th>#</th><th>%</th></tr></thead><tbody>{blitz_pkg_rows}</tbody></table>
+          <div class="mt8 card-hd">Simulated Pressures Used</div>
+          <table class="tbl"><thead><tr><th>Package</th><th>#</th><th>%</th></tr></thead><tbody>{sim_pkg_rows}</tbody></table>
         </div>
       </div>'''
 
@@ -777,15 +882,114 @@ def build_bible_section(bible):
         cards.append(bible_card("Coverage by Def Personnel", bible_group_rows(bible["coverageByDefPers"], "defpers", "coverage")))
 
     cards.append(bible_card("Coverage by Pers by Front", bible_pers_by_front_rows(bible["coverageByPersByFront"])))
-    cards.append(bible_card("Coverage to Formation Group", bible_group_rows(bible["coverageToFormFamily"], "form", "coverage")))
 
     notes_card = '''<div class="card bib-card" style="grid-column:1/-1">
         <div class="card-hd">Notes</div>
         <textarea class="bib-notes" rows="4" placeholder="Add scouting notes for this opponent here (personnel tendencies, coverage tells, situational reads)..."></textarea>
       </div>'''
 
+    # Normal Downs Breakdown by Formation replaces the old flat "Coverage to
+    # Formation Group" table with the PREPARE FOR/REACT TO/MIXERS/PRESSURE card
+    # format (same underlying FinalForm cross-tab, richer presentation).
+    formation_breakdown = build_nd_formation_breakdown(bible.get("ndFormationBreakdown"), bible.get("ndFormationSmallSample"))
+
     return f'''<div class="print-label">Normal Downs Bible — {n} plays</div>
       <div class="bib-cols">
         {"".join(cards)}
       </div>
+      {formation_breakdown}
       {notes_card}'''
+
+def _tag_table_rows(items, colspan=2):
+    if not items:
+        return f'<tr><td colspan="{colspan}" style="text-align:center;color:var(--muted)">No data yet</td></tr>'
+    rows = []
+    for i, it in enumerate(items):
+        cls = ' class="b hl"' if i == 0 else ""
+        rows.append(f'<tr><td{cls}>{esc(it["label"])}</td><td{cls}>{it["n"]}</td></tr>')
+    return "\n".join(rows)
+
+def build_p10_summary(bucket):
+    """Quick-summary pcard bar for the top of the P&10 (1st Play of Every
+    Drive) tab -- shown above the Formations/Fronts/Coverage/Blitz stabs,
+    outside any single sub-tab, so it's visible no matter which one is
+    active. Per Matt's 2026-08-31 request for "a quick summary at top".
+    Four headline numbers: dominant Front Family, Zone/Man coverage split
+    (via manZoneP10, same classification as the site-wide Man/Zone feature),
+    true Blitz Rate (5+ rushers, same definition every other tab uses), and
+    Nickel-vs-Base personnel usage. Total Pressure (blitz + sim/show) is
+    intentionally left out of this headline bar -- it's one click away on
+    the Blitz sub-tab (build_blitz_panel already shows it there for every
+    bucket) and four stats keeps this bar genuinely "quick". Caller
+    (build_p10_section) only invokes this when bucket["n"] > 0."""
+    n = bucket["n"]
+    top_front = bucket["frontFamily"][0] if bucket["frontFamily"] else None
+    front_label = top_front["label"] if top_front else "—"
+    front_pct = top_front["pct"] if top_front else 0
+    mz = bucket.get("manZoneP10") or {"zonePct": 0, "manPct": 0}
+    dp = bucket.get("defPersonnel") or {"nickelPct": 0, "nickel": 0, "n": 0}
+    return f'''<div class="g4 mb14">
+        <div class="pcard int"><div class="ppct">{front_pct}%</div><div class="plbl">{esc(front_label)} Front</div><div class="pcnt">{n} plays</div></div>
+        <div class="pcard fld"><div class="ppct">{mz["zonePct"]}%</div><div class="plbl">Zone Coverage</div><div class="pcnt">{mz["manPct"]}% Man</div></div>
+        <div class="pcard dbl"><div class="ppct">{bucket["blitzPct"]}%</div><div class="plbl">Blitz Rate</div><div class="pcnt">{bucket["blitzCount"]}/{n} plays</div></div>
+        <div class="pcard bnd"><div class="ppct">{dp["nickelPct"]}%</div><div class="plbl">Nickel Personnel</div><div class="pcnt">{dp["nickel"]}/{dp["n"]} plays</div></div>
+      </div>'''
+
+def build_p10_section(data):
+    """Full P&10 (1st Play of Every Drive) tab: Quick Summary pcard bar +
+    the standard 4-stab breakdown (Formations/Fronts/Coverage/Blitz), same
+    shape as 2MIN/4MIN (build_breakdown_section) -- P&10 has no down-distance
+    splits table since it's always 1st & 10 by definition. data = compute_p10.
+    py's JSON output (the {"team","totalRowsLoaded","p10RowsUsed","p10":{...}}
+    dict); pass {} / {"p10": None} for an opponent with no P&10 file charted
+    yet to get the single empty-state message instead of a real breakdown."""
+    bucket = data.get("p10") if data else None
+    if not bucket or not bucket.get("n"):
+        return '<div class="callout info">No P&10 (1st Play of Every Drive) data charted yet for this opponent.</div>'
+    summary = build_p10_summary(bucket)
+    breakdown = build_breakdown_section(
+        bucket, "1st Play of Drive (P&10)", "p10", "ch-p10",
+        onclick_fn=lambda t: f"switchStab('p10','{t}')"
+    )
+    return summary + "\n      " + breakdown
+
+def build_run_section(run_tab):
+    """Run Defense tab: run-family efficiency callout/chart hooks (the actual
+    bars/canvas are drawn client-side from TEAMS_DATA.runFamilies -- this just
+    needs the narrative callout) + DL 3-Tech (RB Side) alignment and DE
+    Reaction (P.O.A. / Read) breakdown tables. run_tab = compute_situational.
+    py's compute_run_tab() output. Matches the existing tmpl-run-<TEAM> /
+    sec-run-body structure and CSS classes used by ODU/MARYLAND/VMI."""
+    if not run_tab or not run_tab.get("n"):
+        return '''<div class="callout success"><strong>Run Efficiency Allowed: —</strong> — awaiting PFF/XOS breakdown for this opponent.</div>
+<div class="g2 mb14">
+<div class="card"><div class="card-hd">Run Family Efficiencies (Higher % = Better for Offense)</div><div id="run-eff-bars"></div><div class="txt-xs txt-muted mt8">No run-family data loaded yet for this opponent.</div></div>
+<div class="card"><div class="card-hd">Run Family Efficiency Chart</div><div class="ch-lg"><canvas id="ch-run-eff"></canvas></div></div>
+</div>
+<div class="g2">
+<div class="card"><div class="card-hd">DL Techniques — 3 Tech (RB Side)</div><table class="tbl"><thead><tr><th>Alignment</th><th># Plays</th></tr></thead><tbody><tr><td colspan="2" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+<div class="card"><div class="card-hd">Run Game Reactions</div><div class="g2">
+<div><div class="card-hd" style="margin-bottom:6px">DE Reaction (P.O.A.)</div><table class="tbl"><thead><tr><th>Reaction</th><th>#</th></tr></thead><tbody><tr><td colspan="2" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+<div><div class="card-hd" style="margin-bottom:6px">DE Reaction (Read)</div><table class="tbl"><thead><tr><th>Reaction</th><th>#</th></tr></thead><tbody><tr><td colspan="2" style="text-align:center;color:var(--muted)">No data yet</td></tr></tbody></table></div>
+</div></div>
+</div>'''
+
+    narrative = esc(run_tab["narrative"]) if run_tab.get("narrative") else f'Overall Run Efficiency Allowed: {run_tab["effPct"]}% ({run_tab["effN"]}/{run_tab["n"]} qualifying snaps).'
+    # narrative already has "Overall Run Efficiency Allowed: X%" as plain text --
+    # bold just that lead-in span to match the site's existing callout style.
+    narrative = narrative.replace(
+        f'Overall Run Efficiency Allowed: {run_tab["effPct"]}%',
+        f'<strong>Overall Run Efficiency Allowed: {run_tab["effPct"]}%</strong>', 1)
+
+    return f'''<div class="callout success">{narrative}</div>
+<div class="g2 mb14">
+<div class="card"><div class="card-hd">Run Family Efficiencies (Higher % = Better for Offense)</div><div id="run-eff-bars"></div><div class="txt-xs txt-muted mt8">🟢 &lt;50% = Good D · 🟡 50-59% = Moderate · 🔴 60%+ = Offense Wins</div></div>
+<div class="card"><div class="card-hd">Run Family Efficiency Chart</div><div class="ch-lg"><canvas id="ch-run-eff"></canvas></div></div>
+</div>
+<div class="g2">
+<div class="card"><div class="card-hd">DL Techniques — 3 Tech (RB Side)</div><table class="tbl"><thead><tr><th>Alignment</th><th># Plays</th></tr></thead><tbody>{_tag_table_rows(run_tab["threeTech"])}</tbody></table></div>
+<div class="card"><div class="card-hd">Run Game Reactions</div><div class="g2">
+<div><div class="card-hd" style="margin-bottom:6px">DE Reaction (P.O.A.)</div><table class="tbl"><thead><tr><th>Reaction</th><th>#</th></tr></thead><tbody>{_tag_table_rows(run_tab["dePoa"])}</tbody></table></div>
+<div><div class="card-hd" style="margin-bottom:6px">DE Reaction (Read)</div><table class="tbl"><thead><tr><th>Reaction</th><th>#</th></tr></thead><tbody>{_tag_table_rows(run_tab["deRead"])}</tbody></table></div>
+</div></div>
+</div>'''
