@@ -935,23 +935,125 @@ def build_p10_summary(bucket):
         <div class="pcard bnd"><div class="ppct">{dp["nickelPct"]}%</div><div class="plbl">Nickel Personnel</div><div class="pcnt">{dp["nickel"]}/{dp["n"]} plays</div></div>
       </div>'''
 
+def p10_formation_table_rows(formations):
+    """Compact formation table for the P&10 overview -- Formation/Pers/Plays/
+    Blitz% only, no Top Front/Top Coverage columns. Per-formation top-front/
+    top-coverage is even noisier than the tab's own aggregate front/coverage
+    numbers (already thin at n~42 total; a single formation might be 4-5
+    plays), so it's dropped here rather than shown misleadingly precise --
+    the aggregate Front/Coverage numbers already live in the Quick Summary
+    bar and narrative above this table."""
+    rows = []
+    for f in formations:
+        rows.append(
+            f'<tr><td class="b">{esc(f["formation"])}</td><td>{esc(f["pers"])}</td>'
+            f'<td>{f["plays"]} ({f["pct"]}%)</td>'
+            f'<td class="{blitz_class(f["blitzPct"])}">{f["blitzPct"]}%</td></tr>'
+        )
+    return "\n                ".join(rows) if rows else '<tr><td colspan="4" style="text-align:center;color:var(--muted)">No data yet</td></tr>'
+
+def build_p10_formations_panel(bucket, label, canvas_prefix):
+    """Formation Tendencies table + frequency-vs-blitz chart for the P&10
+    overview -- always visible, no stab-switching wrapper (there's only one
+    panel left after the 2026-09-01 simplification, see build_p10_section)."""
+    return f'''<div class="g2">
+          <div class="card">
+            <div class="card-hd">Formation Tendencies — {label}</div>
+            <table class="tbl">
+              <thead><tr><th>Formation</th><th>Pers</th><th>Plays</th><th>Blitz%</th></tr></thead>
+              <tbody>
+                {p10_formation_table_rows(bucket["formations"])}
+              </tbody>
+            </table>
+          </div>
+          <div class="card">
+            <div class="card-hd">Formation Frequency vs Blitz Rate</div>
+            {formation_bar_canvas(canvas_prefix + "-form")}
+          </div>
+        </div>'''
+
+def build_p10_narrative(bucket):
+    """Auto-generated summary paragraph for the P&10 overview, synthesizing
+    the bucket's own already-computed numbers into 2-3 sentences of prose --
+    same discipline as the RZ/GL narrative callouts elsewhere in this file
+    (built from real computed data, not hand-written). Added 2026-09-01 per
+    Matt: with only ~1 play per drive charted, P&10 sample sizes will always
+    be thin (n=42 for VMI across 5 games) -- a full Formations/Fronts/
+    Coverage/Blitz breakdown implies more precision than the data supports
+    (this is exactly what let a single-row typo, "3-" vs "SAR", visibly
+    distort the old Blitz sub-tab's 5-Man Pressure Schemes table). A short
+    narrative synthesizing the headline signal is more honest about what a
+    ~40-play sample can actually tell you than four separate drill-down
+    tables/donuts full of n=1/n=2 cells."""
+    n = bucket["n"]
+    fronts = bucket.get("frontFamily") or []
+    covs = bucket.get("covFamily") or []
+    mz = bucket.get("manZoneP10") or {"zonePct": 0, "manPct": 0}
+    dp = bucket.get("defPersonnel") or {"nickelPct": 0, "nickel": 0, "n": 0}
+    forms = bucket.get("formations") or []
+
+    front1 = fronts[0] if fronts else None
+    front2 = fronts[1] if len(fronts) > 1 else None
+    if front1:
+        front_txt = f'{esc(front1["label"])} front on {front1["pct"]}% of snaps'
+        if front2 and front2["pct"] >= 5:
+            front_txt += f' (mixing in {esc(front2["label"])} {front2["pct"]}% of the time)'
+    else:
+        front_txt = 'no clear front tendency yet'
+
+    cov1 = covs[0] if covs else None
+    cov2 = covs[1] if len(covs) > 1 else None
+    cov_detail = ''
+    if cov1:
+        cov_detail = f', leaning on {esc(cov1["label"])}'
+        if cov2:
+            cov_detail += f' and {esc(cov2["label"])}'
+        cov_detail += ' most often'
+
+    blitz_txt = f'{bucket["blitzPct"]}% true blitz rate ({bucket["blitzCount"]}/{n})'
+    if bucket.get("totalPressurePct", 0) > bucket["blitzPct"]:
+        blitz_txt += f', {bucket["totalPressurePct"]}% including sim/show pressure'
+
+    top_form = forms[0] if forms else None
+    form_txt = (
+        f' Most common look on the opening snap: {esc(top_form["formation"])} '
+        f'({top_form["pct"]}% of drive-openers).'
+        if top_form else ''
+    )
+
+    return (
+        f'<div class="callout info"><strong>{n} charted drive-openers</strong> — '
+        f'{front_txt}. Coverage runs {mz["zonePct"]}% zone / {mz["manPct"]}% man{cov_detail}. '
+        f'They show a {blitz_txt}, and play {dp["nickelPct"]}% nickel personnel '
+        f'({dp["nickel"]}/{dp["n"]}).{form_txt}</div>'
+    )
+
 def build_p10_section(data):
-    """Full P&10 (1st Play of Every Drive) tab: Quick Summary pcard bar +
-    the standard 4-stab breakdown (Formations/Fronts/Coverage/Blitz), same
-    shape as 2MIN/4MIN (build_breakdown_section) -- P&10 has no down-distance
-    splits table since it's always 1st & 10 by definition. data = compute_p10.
-    py's JSON output (the {"team","totalRowsLoaded","p10RowsUsed","p10":{...}}
-    dict); pass {} / {"p10": None} for an opponent with no P&10 file charted
-    yet to get the single empty-state message instead of a real breakdown."""
+    """P&10 (1st Play of Every Drive) tab: Quick Summary pcard bar + a
+    data-driven narrative paragraph + a Formation Tendencies table/chart.
+    Simplified 2026-09-01 from the original 4-stab Formations/Fronts/
+    Coverage/Blitz breakdown, per Matt: with only ~1 play per drive charted,
+    the sample will always be too thin (n=42 for VMI across 5 games) to
+    support a full drill-down -- most per-formation/per-scheme cells were
+    down to 1-3 plays, which is exactly what let a single-row data-entry
+    typo ("3-" vs "SAR" in the Blitz-scheme column) visibly distort a whole
+    table. Formations is kept because raw frequency (no further slicing) is
+    still a genuinely useful "what do they show on drive-openers" read even
+    at low counts; Fronts/Coverage/Blitz are dropped as separate tabs since
+    their headline numbers already live in the Quick Summary bar and the
+    narrative folds in the rest of the real signal (secondary coverage
+    family, sim/show pressure, personnel) in prose instead of thin tables.
+    data = compute_p10.py's JSON output (the {"team","totalRowsLoaded",
+    "p10RowsUsed","p10":{...}} dict); pass {} / {"p10": None} for an
+    opponent with no P&10 file charted yet to get the single empty-state
+    message instead of a real breakdown."""
     bucket = data.get("p10") if data else None
     if not bucket or not bucket.get("n"):
         return '<div class="callout info">No P&10 (1st Play of Every Drive) data charted yet for this opponent.</div>'
     summary = build_p10_summary(bucket)
-    breakdown = build_breakdown_section(
-        bucket, "1st Play of Drive (P&10)", "p10", "ch-p10",
-        onclick_fn=lambda t: f"switchStab('p10','{t}')"
-    )
-    return summary + "\n      " + breakdown
+    narrative = build_p10_narrative(bucket)
+    formations = build_p10_formations_panel(bucket, "1st Play of Drive (P&10)", "ch-p10")
+    return summary + "\n      " + narrative + "\n      " + formations
 
 def build_run_section(run_tab):
     """Run Defense tab: run-family efficiency callout/chart hooks (the actual
