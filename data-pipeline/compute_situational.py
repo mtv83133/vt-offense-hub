@@ -1119,8 +1119,12 @@ BIBLE_GAME_ALLOWLIST = {
     # for normal-downs/open-field snaps -- the other 6 (Indiana, NC Central,
     # Liberty, Coastal Carolina, Georgia State, Georgia Southern) only got 3rd
     # down, RZ, 2-min EOG/EOH, and 4-min situational snaps charted.
+    # "vs Norfolk State" added 2026-09-06 per Matt's explicit confirmation: ODU's
+    # 2026 season-opener, confirmed 90.9% fully-charted down-1/2 rows -- matches
+    # the completeness bar of the other 7 games below (90.9%-96.8%), unlike the
+    # excluded 6 (~0%).
     "ODU": ["vs Virginia Tech", "vs Marshall", "vs James Madison", "vs Louisiana-Monroe",
-            "vs South Florida", "vs Appalachian State", "vs Troy"],
+            "vs South Florida", "vs Appalachian State", "vs Troy", "vs Norfolk State"],
     # Per Matt's 2026-08-28 direction: only these 6 Maryland games were fully
     # charted for normal-downs/open-field snaps -- the other 6 (Northern
     # Illinois, UCLA, Wisconsin, Florida Atlantic, Nebraska, Towson) only got
