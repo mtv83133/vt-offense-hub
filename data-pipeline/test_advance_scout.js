@@ -131,14 +131,18 @@ async function main() {
     'MARYLAND: field-breakpoint callout shows when TEAMS_DATA has a value');
   window.eval("TEAMS_DATA.MARYLAND.fieldBreakpoint = null;");
 
-  // ODU 4 MIN should be an empty bucket (n=0, no '4' tag in their data) -- check placeholder text present
+  // ODU 4 MIN: as of the 2026-09-06 data refresh (2026 Norfolk State opener added),
+  // ODU now has 5 real charted 4-Minute Offense plays -- the tab should show the
+  // real built-out Formations/Fronts/Coverage/Blitz content, NOT the old
+  // "no data charted yet" placeholder (that assertion is now stale, not a regression --
+  // see vt-offense-hub-update skill's data-refresh notes for this date).
   window.selectTeam('ODU');
   await wait(80);
   window.show('fm');
   await wait(80);
   const fmBody = window.document.getElementById('sec-fm-body');
-  const hasPlaceholder = fmBody && /No .*data charted yet/i.test(fmBody.textContent);
-  assert(hasPlaceholder, 'ODU: 4 MIN tab shows "no data yet" placeholder (0 tagged plays)');
+  const hasRealFmContent = fmBody && /Total 4-Minute Offense Plays: 5/.test(fmBody.textContent);
+  assert(hasRealFmContent, 'ODU: 4 MIN tab shows real charted content (5 plays, Norfolk State refresh)');
 
   // Report
   const fails = results.filter(r => !r.ok);
