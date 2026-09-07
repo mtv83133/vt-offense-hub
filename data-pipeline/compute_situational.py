@@ -215,6 +215,62 @@ def run_family_of(row):
         return RUN_NUM_PREFIX_MAP.get(m.group(1))
     return None
 
+# Blitz call "family" grouping -- e.g. MISSILE, MISSILE X, MISSILE WK, and
+# MISSILE X WK are all the same named pressure package with a different
+# technique modifier (X/WK/+) tacked on; for TENDENCY call-outs (top blitz
+# call, "family is X% of blitzes" narrative lines) they should roll up into
+# one MISSILE family bucket so the real tendency isn't fragmented across 4+
+# rows that each look individually minor. Added 2026-09-08 per Matt ("for
+# all the blitzes... reference missile, missile x wk, missile x, etc. as a
+# family, same with bam, bam x, bam +"), mirroring the "MISSILE family"
+# language already hand-written into VMI's Overview fastFacts.
+#
+# IMPORTANT -- this is suffix-only (confirmed with Matt): it strips trailing
+# technique tokens (X, WK, +, and combinations like "X WK") from the END of
+# the call name. It deliberately does NOT touch:
+#   - disguise-look PREFIXES (SNAKE/COBRA/STAR before the base word, e.g.
+#     "SNAKE MISSILE", "COBRA MISSILE", "STAR MISSILE") -- confirmed these
+#     should stay OUT of the plain family, since the disguise look is a
+#     real distinct presentation worth keeping separate, not noise.
+#   - letter/number positional codes (S EDGE, M EDGE, W EDGE, FS EDGE, M-A,
+#     W-2, etc.) -- these differ by WHICH defender brings it, already
+#     confirmed in advance-scout-raw/README.md as "distinct blitzer/gap
+#     assignments, not typos of each other." A 2-token call like "S EDGE"
+#     has no suffix to strip and correctly falls through unchanged.
+#   - any other multi-word remainder (compound calls like "GUT+COBRA",
+#     "SAW M-2", "MISSILE WILL EDGE") -- left as its own distinct raw entry
+#     rather than guessed into a family.
+BLITZ_SUFFIX_TOKENS = {'X', 'WK', '+'}
+
+def blitz_family_of(raw):
+    """Reduces a raw Blitz call to its family base name by stripping
+    trailing technique-suffix tokens (see BLITZ_SUFFIX_TOKENS above) from
+    the end of the string. Returns None if what's left isn't a single word
+    (i.e. the call doesn't cleanly reduce to "base word + suffixes only"),
+    so the caller should fall back to treating the raw value as its own
+    ungrouped bucket in that case."""
+    v = upper(raw).strip()
+    if not v:
+        return None
+    # normalize a no-space "WORD+" into "WORD +" so it tokenizes the same
+    # as an explicitly-spaced "+" (real data has both "SAW+" and "SAW +")
+    v = re.sub(r'(\S)\+', r'\1 +', v)
+    tokens = v.split()
+    while tokens and tokens[-1] in BLITZ_SUFFIX_TOKENS:
+        tokens.pop()
+    if len(tokens) == 1:
+        return tokens[0]
+    return None
+
+def blitz_family_or_raw(raw):
+    """blitz_family_of() with a fallback to the raw (upper/stripped) value
+    when it doesn't cleanly reduce to a family -- use this as the Counter
+    key wherever a 'top blitz call' stat should group family variants
+    together but still count non-family calls individually, same as
+    before."""
+    fam = blitz_family_of(raw)
+    return fam if fam else upper(raw).strip()
+
 def is_clean_tag(v):
     """A trailing '?' means the charter wasn't confident in the tag; 'EMPTY'
     isn't a real alignment/reaction value. Both are excluded from the DL
@@ -436,9 +492,26 @@ def compute_bucket(rows):
         disp, pers = parse_formation(row)
         form_groups[(disp, pers)].append(row)
 
+    # UNKNOWN/blank/'?' formation groups (parse_formation() falls back to
+    # 'UNKNOWN' when both FinalForm and FORMATION GROUP OFF are blank) are
+    # noise most of the time -- a stray uncharted play shouldn't eat one of
+    # the top-8 rows in this table. But if uncharted formations make up a
+    # real chunk of the bucket's snaps, silently dropping them would make the
+    # table look complete when it isn't, so surface it once it clears this
+    # threshold. 2026-09-07 per Matt: "exclude any unknowns or '?' ...
+    # unless it appears a significant amount."
+    UNKNOWN_FORMATION_MIN_PCT = 15
+
+    def is_unknown_formation(disp, pers):
+        d = (disp or '').strip().upper()
+        p = (pers or '').strip().upper()
+        return d in ('', 'UNKNOWN', 'NAN') or '?' in d or '?' in p
+
     formations = []
     for (disp, pers), grp in sorted(form_groups.items(), key=lambda kv: -len(kv[1])):
         n = len(grp)
+        if is_unknown_formation(disp, pers) and (n / total * 100) < UNKNOWN_FORMATION_MIN_PCT:
+            continue
         blitz_n = sum(1 for r in grp if is_blitz(r))
         front_c = Counter(upper(r.get('Front')) for r in grp)
         cov_c = Counter(upper(r.get('Coverage')) for r in grp)
@@ -572,7 +645,24 @@ def compute_bucket(rows):
 
 def compute_down_splits(rows, defs):
     """defs: list of (label, predicate(row)->bool). Returns list of
-    {label, n, fronts:[...], coverage:[...], stuntCount, stuntPct}."""
+    {label, n, fronts:[...], coverage:[...], stuntCount, stuntPct,
+    topBlitz, topBlitzPct}.
+
+    topBlitz/topBlitzPct: the single most common non-blank 'Blitz' call name
+    (raw, NOT family-grouped) charted within this split, and what % of the
+    split's TOTAL plays (n -- same denominator convention as stuntPct, not
+    just the blitzed subset) that call accounts for. None/0 if the split has
+    no blitz calls charted. Added 2026-09-06 for the CD-tab "Blitz by Down &
+    Distance" table (Matt: "want it to have the top blitz & % for each down
+    and distance for conversion downs").
+
+    2026-09-08: briefly switched this to family grouping (blitz_family_or_
+    raw()), then reverted same day per Matt's explicit follow-up: "for the
+    tables leave the names individualized... for the overview & summaries
+    talk about top blitz as a family if applicable." This table shows the
+    exact call charted per down-and-distance bucket -- family rollups belong
+    in narrative/summary text (see build_p10_narrative() in gen_html.py,
+    which DOES use blitz_family_or_raw()), not in this granular table."""
     out = []
     for label, pred in defs:
         sub = [r for r in rows if pred(r)]
@@ -580,12 +670,21 @@ def compute_down_splits(rows, defs):
         front_c = Counter(upper(r.get('Front')) for r in sub)
         cov_c = Counter(upper(r.get('Coverage')) for r in sub)
         stunt_n = sum(1 for r in sub if is_stunt(r))
+        blitz_c = Counter(upper(r.get('Blitz')) for r in sub if upper(r.get('Blitz')))
+        top_blitz, top_blitz_pct = None, 0
+        for name, cnt in blitz_c.most_common():
+            if name in ('', 'UNKNOWN', 'NAN'):
+                continue
+            top_blitz, top_blitz_pct = name, round(cnt/n*100) if n else 0
+            break
         out.append({
             "label": label, "n": n,
             "fronts": topN_pct(front_c, n, n=6),
             "coverage": topN_pct(cov_c, n, n=6),
             "stuntCount": stunt_n,
             "stuntPct": round(stunt_n/n*100) if n else 0,
+            "topBlitz": top_blitz,
+            "topBlitzPct": top_blitz_pct,
         })
     return out
 
