@@ -271,6 +271,75 @@ def blitz_family_or_raw(raw):
     fam = blitz_family_of(raw)
     return fam if fam else upper(raw).strip()
 
+# LB "Plug" family grouping -- a SEPARATE, cross-call family from the
+# blitz_family_of() suffix-stripping above. Added 2026-09-13 per Matt
+# ("Maryland brings a decent amount of internal pressure from the LBs...
+# let's group LB plug as a family so we can see their top blitz accurately
+# -- so any of the M-A, W-1, etc are internal blitzes by the LBs"). Confirmed
+# against Maryland's own depth-chart terminology (SAM/MIKE/WILL, see §2c of
+# the skill) that M/W/S letter-dash-gap codes (M-A, M-B, M-1, M-2, W-1, W-2,
+# W-A, S-B, etc.) are single-blitzer calls naming WHICH linebacker shoots
+# WHICH interior gap -- a defense that spreads this across many
+# individually-named gap calls can have a bigger real tendency than any one
+# single named exotic package, and a table of five separate 2-9% rows hides
+# that from a coach skimming Overview.
+#
+# Deliberately narrow -- only a bare "<M|W|S>-<gap>" single-token call
+# qualifies. Explicitly excluded (stay in their own bucket via
+# blitz_family_or_raw, same as before):
+#   - EDGE-suffix calls (M EDGE/W EDGE/S EDGE/FS EDGE) -- exterior contain
+#     rushes, a real distinct tendency from an interior "plug," already
+#     tracked as their own individual calls.
+#   - WRAP-suffix calls (M WRAP/W WRAP) -- a looping technique, not a
+#     straight interior shot.
+#   - multi-tag combo calls (e.g. "S EDGE W-2", two blitzers on the same
+#     snap) -- ambiguous which blitzer to credit, left as its own raw entry
+#     rather than guessed into either family (mirrors blitz_family_of's own
+#     "any other multi-word remainder... left as its own distinct raw entry"
+#     rule for named-package suffixes).
+#   - named exotic packages with no letter code (GUT, SAW, MISSILE, COBRA,
+#     etc.) even when they're plausibly LB-originated -- only confirmed
+#     letter-coded calls are included, nothing guessed from a play name.
+# FS is deliberately NOT included -- it's Free Safety, not a linebacker (see
+# roster2026/depthChart's own FS/SAM/MIKE/WILL split).
+LB_PLUG_RE = re.compile(r'^[MWS]-[A-Z0-9]+$')
+LB_PLUG_FAMILY = 'LB PLUG'
+
+def lb_plug_family_of(raw):
+    """Returns 'LB PLUG' if raw is a bare letter-dash-gap LB call (M-A, W-2,
+    S-B, etc.), else None -- see the module comment above for exactly what
+    does/doesn't qualify."""
+    v = upper(raw).strip()
+    return LB_PLUG_FAMILY if LB_PLUG_RE.match(v) else None
+
+def blitz_topcall_key(raw):
+    """The Counter key for a 'real top blitz tendency' stat: LB Plug
+    grouping (see above) takes priority over blitz_family_or_raw's suffix
+    grouping, since a letter-dash-gap call is never also a named-package
+    variant. Use this (via top_blitz_family() below) for any Overview-level
+    'what's their top blitz' stat; keep using blitz_family_or_raw or the raw
+    value for granular per-call tables (ND/CD tabs, down-splits) which must
+    stay individualized per Matt's explicit 2026-09-08 direction (see
+    compute_down_splits's docstring)."""
+    return lb_plug_family_of(raw) or blitz_family_or_raw(raw)
+
+def top_blitz_family(blitz_rows):
+    """{name, count, pct} for the single highest-count blitz_topcall_key()
+    across blitz_rows (expects TRUE blitz rows, i.e. already is_blitz()-
+    filtered) -- the family-aware 'real' top blitz call/package, for citing
+    in Overview-level hand-authored prose (fastFacts/exploits are NOT auto-
+    generated, see advance-scout-raw/README.md -- this just gives an exact,
+    reproducible number to write the prose FROM, same convention as every
+    other Overview stat). None if blitz_rows is empty or nothing charted."""
+    n = len(blitz_rows)
+    if not n:
+        return None
+    c = Counter(blitz_topcall_key(r.get('Blitz')) for r in blitz_rows if upper(r.get('Blitz')))
+    if not c:
+        return None
+    name, cnt = c.most_common(1)[0]
+    return {"name": name, "count": cnt, "pct": round(cnt/n*100) if n else 0}
+
 def is_clean_tag(v):
     """A trailing '?' means the charter wasn't confident in the tag; 'EMPTY'
     isn't a real alignment/reaction value. Both are excluded from the DL
@@ -545,6 +614,11 @@ def compute_bucket(rows):
     rb_c = Counter(upper(r.get('RBTENDBLITZ')) for r in blitz_rows)
     rb_tendency = topN_pct(rb_c, blitz_count, n=5)
 
+    # ---- "Real" top blitz call/family, LB Plug-aware (see blitz_topcall_key
+    # / top_blitz_family above) -- for Overview-level prose, not the
+    # granular per-call tables. ----
+    top_blitz = top_blitz_family(blitz_rows)
+
     # ---- Simulated/show pressure (<=4 rushers, Blitz field charted) + Total
     # Pressure (blitz + sim pressure combined) -- new 2026-08-30 per Matt, so
     # a sim pressure look isn't silently counted as a real blitz anymore, but
@@ -628,6 +702,7 @@ def compute_bucket(rows):
         "n": total, "formations": formations,
         "frontFamily": front_family, "covFamily": cov_family,
         "blitzPct": blitz_pct, "blitzCount": blitz_count,
+        "topBlitzFamily": top_blitz,
         "rbBlitzTendency": rb_tendency,
         "pcards": pcards,
         "pressureFive": pressure_five, "pressureFiveN": five_n,
