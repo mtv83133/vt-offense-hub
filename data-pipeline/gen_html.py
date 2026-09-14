@@ -280,6 +280,27 @@ def stunts_table_card(splits):
             </table>
           </div>'''
 
+def blitz_table_card(splits):
+    """CD-tab-only counterpart to stunts_table_card(): top blitz call name +
+    % (of the split's total plays) for each down-and-distance bucket. Added
+    2026-09-06 per Matt: sits directly above Stunts by Down & Distance,
+    same visual card/table styling. Uses 'card mb14' (not plain 'card')
+    since it's always stacked above another card in this position, never
+    the last item in its column."""
+    rows = []
+    for s in splits:
+        top_blitz = esc(s["topBlitz"]) if s.get("topBlitz") else "&mdash;"
+        rows.append(f'<tr><td>{esc(s["label"])}</td><td>{top_blitz}</td><td>{s["n"]}</td><td>{s["topBlitzPct"]}%</td></tr>')
+    body = "\n                ".join(rows)
+    return f'''<div class="card mb14"><div class="card-hd">Blitz by Down &amp; Distance</div>
+            <table class="tbl">
+              <thead><tr><th>Down &amp; Distance</th><th>Top Blitz</th><th>Plays</th><th>Blitz %</th></tr></thead>
+              <tbody>
+                {body}
+              </tbody>
+            </table>
+          </div>'''
+
 def pcards_html(pcards, blitz_total):
     if not pcards:
         return '<div class="callout info">No blitz-direction data charted yet.</div>'
@@ -344,8 +365,10 @@ def build_blitz_panel(bucket, label, id_prefix, down_label="", plays_header="Pla
     """Full standardized Blitz sub-tab: callout, direction cards, 5/6/7-man
     scheme tables, RB tendency, Blitz by Personnel, Coverage on Blitz,
     Front on Blitz, and (ND/CD only, when `splits` is given) Stunts by
-    Down & Distance. Any individual table/card with NO underlying data is
-    omitted entirely -- no blank tables or "No data yet" placeholders."""
+    Down & Distance -- plus, CD only (id_prefix=="cd"), Blitz by Down &
+    Distance stacked directly above the Stunts table (added 2026-09-06).
+    Any individual table/card with NO underlying data is omitted entirely
+    -- no blank tables or "No data yet" placeholders."""
     rb_card = ""
     if bucket["rbBlitzTendency"]:
         rb_card = f'''<div class="card mb14">
@@ -461,11 +484,24 @@ def build_blitz_panel(bucket, label, id_prefix, down_label="", plays_header="Pla
           </div>
         </div>'''
 
-    bottom_row_items = [c for c in [front_blitz_card, stunts_table_card(splits) if splits else ""] if c]
+    # Right column: Stunts by Down & Distance (ND + CD), with Blitz by Down &
+    # Distance stacked directly above it on the CD tab only (Matt, 2026-09-06:
+    # "right above stunts by down & distance... for conversion downs"). Wrapped
+    # the same way two_col_row (above) wraps its columns, so a 2-card column
+    # still counts as exactly one grid item -- concatenating them unwrapped
+    # into the g2 grid would place them in separate columns instead of stacked.
+    stunts_card_html = stunts_table_card(splits) if splits else ""
+    blitz_dd_card_html = blitz_table_card(splits) if (splits and id_prefix == "cd") else ""
+    bottom_right_col = "\n            ".join(c for c in [blitz_dd_card_html, stunts_card_html] if c)
     bottom_row = ""
-    if bottom_row_items:
+    if front_blitz_card or bottom_right_col:
         bottom_row = f'''<div class="g2 mt14">
-          {"".join(bottom_row_items)}
+          <div>
+            {front_blitz_card}
+          </div>
+          <div>
+            {bottom_right_col}
+          </div>
         </div>'''
 
     return f'''
@@ -984,7 +1020,28 @@ def build_p10_narrative(bucket):
     distort the old Blitz sub-tab's 5-Man Pressure Schemes table). A short
     narrative synthesizing the headline signal is more honest about what a
     ~40-play sample can actually tell you than four separate drill-down
-    tables/donuts full of n=1/n=2 cells."""
+    tables/donuts full of n=1/n=2 cells.
+
+    2026-09-07: added topBlitz/topBlitzPct into the blitz sentence (per Matt,
+    mirroring the CD tab's Blitz-by-Down-&-Distance top-call feature) -- the
+    call NAME doesn't fit the all-numeric-headline pcards in the Quick
+    Summary bar above, so it's folded into this narrative instead.
+
+    2026-09-13: prefer bucket["topBlitzFamily"] (LB Plug-aware, see
+    top_blitz_family() in compute_situational.py) over the older raw
+    topBlitz/topBlitzPct fields when it's available. topBlitz's Counter
+    only groups blitz_family_or_raw's named-package suffix variants (MISSILE/
+    MISSILE X/etc.), so a defense that spreads its real pressure across many
+    individually-named letter-dash-gap LB calls (M-A/W-1/etc., Maryland's
+    convention -- see §2o of the skill) shows a misleadingly small top call
+    here even though topBlitzFamily correctly identifies LB PLUG as the real
+    dominant tendency. Same accuracy principle already applied to Overview
+    fastFacts/exploits prose -- this narrative is auto-generated exactly like
+    those, so it needs the same check. topBlitzFamily's own "pct" is relative
+    to blitzCount (true blitzes), matching the phrasing convention used in
+    the shipped Overview LB Plug sentences ("30% of true blitz"), so the
+    wording below says "of blitzes" rather than reusing topBlitzPct's
+    of-all-snaps basis."""
     n = bucket["n"]
     fronts = bucket.get("frontFamily") or []
     covs = bucket.get("covFamily") or []
@@ -1011,6 +1068,11 @@ def build_p10_narrative(bucket):
         cov_detail += ' most often'
 
     blitz_txt = f'{bucket["blitzPct"]}% true blitz rate ({bucket["blitzCount"]}/{n})'
+    tbf = bucket.get("topBlitzFamily")
+    if tbf:
+        blitz_txt += f', most often {esc(tbf["name"])} ({tbf["pct"]}% of blitzes)'
+    elif bucket.get("topBlitz"):
+        blitz_txt += f', most often {esc(bucket["topBlitz"])} ({bucket["topBlitzPct"]}%)'
     if bucket.get("totalPressurePct", 0) > bucket["blitzPct"]:
         blitz_txt += f', {bucket["totalPressurePct"]}% including sim/show pressure'
 
