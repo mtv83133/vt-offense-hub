@@ -234,14 +234,16 @@ const PFF_TOOL_DEF = {
   description:
     "Filter Pitt's PFF-graded individual-defender snap data and see event counts (missed " +
     'tackles, pressures, sacks, coverage results, etc.) and average PFF grade, optionally broken ' +
-    'down per player or per position. Use this for any question about an INDIVIDUAL DEFENDER\'S ' +
-    'performance, reliability, or grade (e.g. "who misses the most tackles", "how does the SS ' +
-    'grade in coverage", "which LB generates the most pressure") -- query_plays cannot answer ' +
-    'these since it has no player-level grading. This tool only covers ONE charted game (Week 1 ' +
-    'vs Miami OH), NOT the full season -- always say so when answering, and treat every number ' +
-    'from it as a small, single-game sample, not a season-long tendency. If this tool errors or ' +
-    'says no data is available, that means this team has no PFF individual-defender data loaded ' +
-    '(only Pitt does right now) -- fall back to query_plays and the static context instead.',
+    'down per player, per position, or per game. Use this for any question about an INDIVIDUAL ' +
+    'DEFENDER\'S performance, reliability, or grade (e.g. "who misses the most tackles", "how ' +
+    'does the SS grade in coverage", "which LB generates the most pressure", "how did the ' +
+    'defense play against Syracuse") -- query_plays cannot answer these since it has no ' +
+    'player-level grading. This tool currently covers every Pitt game charted so far this season ' +
+    '(check the games list returned by an unfiltered call, or filter to a single game with the ' +
+    "game parameter) -- still always note it's PFF-charted data, not the full hand-charted " +
+    'scheme dataset. If this tool errors or says no data is available, that means this team has ' +
+    'no PFF individual-defender data loaded (only Pitt does right now) -- fall back to ' +
+    'query_plays and the static context instead.',
   input_schema: {
     type: 'object',
     properties: {
@@ -249,6 +251,13 @@ const PFF_TOOL_DEF = {
       position: { type: 'string', description: "Position code as charted by PFF (e.g. 'FS', 'RLB', 'DLT'), or 'any'." },
       down: { type: 'string', enum: ['1', '2', '3', '4', 'any'] },
       run_pass: { type: 'string', enum: ['run', 'pass', 'any'], description: "Whether the play was a run or pass, or 'any'." },
+      game: {
+        type: 'string',
+        description: "Exact game label to isolate one game (matches as a case-insensitive " +
+          "substring, e.g. 'Syracuse' or 'Week 3'), or 'any' for every game charted so far " +
+          "combined. Check a broad unfiltered call's returned game list for the real labels " +
+          "before filtering to a specific one.",
+      },
       event: {
         type: 'string',
         enum: [
@@ -261,12 +270,13 @@ const PFF_TOOL_DEF = {
       },
       breakdown_by: {
         type: 'string',
-        enum: ['player', 'position', 'none'],
-        description: "Group the matching snaps by player or position and show each group's own " +
-          "event counts/avg grade, or 'none' to just get one aggregate total for the whole filtered set.",
+        enum: ['player', 'position', 'game', 'none'],
+        description: "Group the matching snaps by player, position, or game and show each " +
+          "group's own event counts/avg grade, or 'none' to just get one aggregate total for the " +
+          "whole filtered set.",
       },
     },
-    required: ['player', 'position', 'down', 'run_pass', 'event', 'breakdown_by'],
+    required: ['player', 'position', 'down', 'run_pass', 'game', 'event', 'breakdown_by'],
   },
 };
 
@@ -306,31 +316,45 @@ function groupPffBy(rows, field) {
     .map(([label, group]) => ({ label, ...pffEventSummary(group) }));
 }
 
+// field param: 'player' | 'pos' | 'game' -- game breakdown uses the same
+// grouping helper since each row's `game` string is already a clean label.
+function pffGroupField(breakdownBy) {
+  if (breakdownBy === 'player') return 'player';
+  if (breakdownBy === 'game') return 'game';
+  return 'pos';
+}
+
 function runPffDefenseTool(input, pffDefensePlays) {
   if (!Array.isArray(pffDefensePlays) || !pffDefensePlays.length) {
     return { error: 'No PFF individual-defender data is loaded for this team. Fall back to query_plays and the static context.' };
   }
+  const gamesCharted = Array.from(new Set(pffDefensePlays.map((r) => r.game).filter(Boolean)));
   const filtered = pffDefensePlays.filter((r) => {
     if (input.player !== 'any' && r.player !== input.player) return false;
     if (input.position !== 'any' && r.pos !== input.position) return false;
     if (input.down !== 'any' && String(r.down) !== input.down) return false;
     if (input.run_pass === 'run' && r.rp !== 'R') return false;
     if (input.run_pass === 'pass' && r.rp !== 'P') return false;
+    if (input.game && input.game !== 'any') {
+      if (!r.game || !r.game.toLowerCase().includes(String(input.game).toLowerCase())) return false;
+    }
     if (input.event !== 'any' && r[input.event] !== true) return false;
     return true;
   });
 
   const result = {
-    note: 'This covers only ONE charted Pitt defensive game (Week 1 vs Miami OH) -- treat every ' +
-      'number as a small, single-game sample, never a season-long tendency, and say so when ' +
-      "answering. `trusted` (n >= " + SAMPLE_FLOOR + ') follows the same floor as query_plays.',
+    note: 'PFF-charted individual-defender data, covering every Pitt game charted so far this ' +
+      'season (see games_charted below) -- still a different, narrower dataset than the full ' +
+      'hand-charted scheme data in query_plays. `trusted` (n >= ' + SAMPLE_FLOOR + ') follows the ' +
+      'same floor as query_plays; treat an untrusted count as too thin to call a real tendency.',
+    games_charted: gamesCharted,
     total_matching_snaps: filtered.length,
   };
   if (input.breakdown_by === 'none') {
     Object.assign(result, pffEventSummary(filtered));
   } else {
     result.breakdown_field = input.breakdown_by;
-    result.breakdown = groupPffBy(filtered, input.breakdown_by === 'player' ? 'player' : 'pos');
+    result.breakdown = groupPffBy(filtered, pffGroupField(input.breakdown_by));
   }
   return result;
 }
@@ -658,7 +682,8 @@ export default {
         ? `, and (3) the query_pff_defense tool for anything about an INDIVIDUAL DEFENDER'S grade ` +
           `or events (missed tackles, pressures, sacks, coverage results) -- query_plays has no ` +
           `player-level data, query_pff_defense has no scheme data, use whichever one the question ` +
-          `is actually about, and note that query_pff_defense only covers one charted game`
+          `is actually about. query_pff_defense's results always include a games_charted list -- ` +
+          `use it to know how many games back the numbers, and mention that scope when relevant`
         : '') +
       `. Never invent or estimate a number -- if it requires counting plays, ` +
       `call the tool.\n\n` +
