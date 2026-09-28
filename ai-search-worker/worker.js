@@ -219,6 +219,122 @@ const TOOL_DEF = {
   },
 };
 
+// 2026-09-28, task #796: a SECOND, independent tool over a SECOND raw dataset
+// -- Matt's PFF play-by-play export (pff-data/*.parquet), which turned out to
+// cover exactly one charted Pitt defensive game (Week 1 vs Miami OH, 693
+// defender-snap rows across 31 players -- see build_pitt_pff_defense.py for
+// how it was built and why it's scoped this narrowly). This is individual-
+// defender PFF-graded EVENT data (missed tackles, pressures, sacks, coverage
+// results, per-snap grade) -- a different axis entirely from query_plays'
+// hand-charted SCHEME data. Deliberately a separate tool/dataset rather than
+// merged into queryPlays, since the two have almost no overlapping fields and
+// merging them would just make both harder to filter correctly.
+const PFF_TOOL_DEF = {
+  name: 'query_pff_defense',
+  description:
+    "Filter Pitt's PFF-graded individual-defender snap data and see event counts (missed " +
+    'tackles, pressures, sacks, coverage results, etc.) and average PFF grade, optionally broken ' +
+    'down per player or per position. Use this for any question about an INDIVIDUAL DEFENDER\'S ' +
+    'performance, reliability, or grade (e.g. "who misses the most tackles", "how does the SS ' +
+    'grade in coverage", "which LB generates the most pressure") -- query_plays cannot answer ' +
+    'these since it has no player-level grading. This tool only covers ONE charted game (Week 1 ' +
+    'vs Miami OH), NOT the full season -- always say so when answering, and treat every number ' +
+    'from it as a small, single-game sample, not a season-long tendency. If this tool errors or ' +
+    'says no data is available, that means this team has no PFF individual-defender data loaded ' +
+    '(only Pitt does right now) -- fall back to query_plays and the static context instead.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      player: { type: 'string', description: "Exact player name (e.g. 'Josh Guerrier'), or 'any' for every defender." },
+      position: { type: 'string', description: "Position code as charted by PFF (e.g. 'FS', 'RLB', 'DLT'), or 'any'." },
+      down: { type: 'string', enum: ['1', '2', '3', '4', 'any'] },
+      run_pass: { type: 'string', enum: ['run', 'pass', 'any'], description: "Whether the play was a run or pass, or 'any'." },
+      event: {
+        type: 'string',
+        enum: [
+          'any', 'tackle', 'assist', 'missed_tackle', 'pressure', 'hurry', 'sack', 'hit',
+          'interception', 'batted_pass', 'penalty', 'catch_allowed', 'contested_target',
+          'contested_catch', 'stop', 'beaten_by_defender',
+        ],
+        description: "Only include snaps where this specific event happened (e.g. 'missed_tackle' " +
+          "to isolate every missed-tackle snap), or 'any' for no event filter.",
+      },
+      breakdown_by: {
+        type: 'string',
+        enum: ['player', 'position', 'none'],
+        description: "Group the matching snaps by player or position and show each group's own " +
+          "event counts/avg grade, or 'none' to just get one aggregate total for the whole filtered set.",
+      },
+    },
+    required: ['player', 'position', 'down', 'run_pass', 'event', 'breakdown_by'],
+  },
+};
+
+const PFF_EVENT_FIELDS = [
+  'tackle', 'assist', 'missed_tackle', 'pressure', 'hurry', 'sack', 'hit', 'interception',
+  'batted_pass', 'penalty', 'catch_allowed', 'contested_target', 'contested_catch', 'stop',
+  'beaten_by_defender',
+];
+
+// Sums each boolean event field across a group of PFF snap-rows and averages
+// the PFF `grade` field (when present) -- mirrors statsFor()'s "only report a
+// stat when real data backs it" convention, never a misleading 0.
+function pffEventSummary(rows) {
+  const out = { n: rows.length };
+  for (const f of PFF_EVENT_FIELDS) {
+    const c = rows.filter((r) => r[f] === true).length;
+    if (c > 0) out[f] = c;
+  }
+  const graded = rows.filter((r) => typeof r.grade === 'number');
+  if (graded.length) {
+    out.avg_grade = Math.round((graded.reduce((s, r) => s + r.grade, 0) / graded.length) * 10) / 10;
+  }
+  out.trusted = rows.length >= SAMPLE_FLOOR;
+  return out;
+}
+
+function groupPffBy(rows, field) {
+  const groups = {};
+  for (const r of rows) {
+    const v = r[field];
+    if (!v) continue;
+    (groups[v] = groups[v] || []).push(r);
+  }
+  return Object.entries(groups)
+    .filter(([, group]) => group.length >= MIN_BREAKDOWN_COUNT)
+    .sort((a, b) => b[1].length - a[1].length)
+    .map(([label, group]) => ({ label, ...pffEventSummary(group) }));
+}
+
+function runPffDefenseTool(input, pffDefensePlays) {
+  if (!Array.isArray(pffDefensePlays) || !pffDefensePlays.length) {
+    return { error: 'No PFF individual-defender data is loaded for this team. Fall back to query_plays and the static context.' };
+  }
+  const filtered = pffDefensePlays.filter((r) => {
+    if (input.player !== 'any' && r.player !== input.player) return false;
+    if (input.position !== 'any' && r.pos !== input.position) return false;
+    if (input.down !== 'any' && String(r.down) !== input.down) return false;
+    if (input.run_pass === 'run' && r.rp !== 'R') return false;
+    if (input.run_pass === 'pass' && r.rp !== 'P') return false;
+    if (input.event !== 'any' && r[input.event] !== true) return false;
+    return true;
+  });
+
+  const result = {
+    note: 'This covers only ONE charted Pitt defensive game (Week 1 vs Miami OH) -- treat every ' +
+      'number as a small, single-game sample, never a season-long tendency, and say so when ' +
+      "answering. `trusted` (n >= " + SAMPLE_FLOOR + ') follows the same floor as query_plays.',
+    total_matching_snaps: filtered.length,
+  };
+  if (input.breakdown_by === 'none') {
+    Object.assign(result, pffEventSummary(filtered));
+  } else {
+    result.breakdown_field = input.breakdown_by;
+    result.breakdown = groupPffBy(filtered, input.breakdown_by === 'player' ? 'player' : 'pos');
+  }
+  return result;
+}
+
 const FBI_LABELS = { I: 'Internal', F: 'Field', D: 'Dbl Edge', B: 'Boundary' };
 const EXCLUDE_ND_CD = new Set(['2 EOG', '2 EOH', '4']);
 
@@ -432,7 +548,7 @@ function corsHeaders(origin, allowedOrigin) {
 // backoff before giving up -- previously a single blip here immediately 502'd
 // the coach's whole question. A 4xx client error (bad request, auth failure)
 // is never retried since trying again won't change the outcome.
-async function callClaude(env, system, messages) {
+async function callClaude(env, system, messages, tools) {
   let lastErr;
   for (let attempt = 0; attempt <= MAX_API_RETRIES; attempt++) {
     let resp;
@@ -448,7 +564,7 @@ async function callClaude(env, system, messages) {
           model: MODEL,
           max_tokens: 1536,
           system,
-          tools: [TOOL_DEF],
+          tools,
           messages,
         }),
       });
@@ -513,7 +629,7 @@ export default {
       });
     }
 
-    const { question, teamData, queryPlays, teamLabel } = body || {};
+    const { question, teamData, queryPlays, pffDefensePlays, teamLabel } = body || {};
     if (!question || typeof question !== 'string') {
       return new Response(JSON.stringify({ error: 'Missing "question".' }), {
         status: 400,
@@ -528,14 +644,23 @@ export default {
     }
 
     const vocabLegend = buildVocabLegend(queryPlays);
+    const hasPffData = Array.isArray(pffDefensePlays) && pffDefensePlays.length > 0;
+    const tools = hasPffData ? [TOOL_DEF, PFF_TOOL_DEF] : [TOOL_DEF];
 
     const system =
       `You are a football scouting assistant embedded in a coach-only VT Offense Hub page for ` +
       `${teamLabel || 'the opponent'}. Answer the coach's question using ONLY: (1) the static ` +
       `context JSON below (depth chart, roster, matchups, coach-written notes, run families, ` +
-      `man/zone splits, stat leaders), and (2) the query_plays tool for anything involving a ` +
+      `man/zone splits, stat leaders), (2) the query_plays tool for anything involving a ` +
       `count, rate, percentage, "most common", success rate, or explosive-play claim about ` +
-      `play-level tendencies. Never invent or estimate a number -- if it requires counting plays, ` +
+      `play-level SCHEME tendencies (formations/fronts/coverages/blitzes across the full season)` +
+      (hasPffData
+        ? `, and (3) the query_pff_defense tool for anything about an INDIVIDUAL DEFENDER'S grade ` +
+          `or events (missed tackles, pressures, sacks, coverage results) -- query_plays has no ` +
+          `player-level data, query_pff_defense has no scheme data, use whichever one the question ` +
+          `is actually about, and note that query_pff_defense only covers one charted game`
+        : '') +
+      `. Never invent or estimate a number -- if it requires counting plays, ` +
       `call the tool.\n\n` +
       `HOW TO BE THOROUGH:\n` +
       `- Many real questions need more than one tool call to answer well -- e.g. a "how does X ` +
@@ -577,7 +702,7 @@ export default {
 
     try {
       for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-        const resp = await callClaude(env, system, messages);
+        const resp = await callClaude(env, system, messages, tools);
 
         if (resp.stop_reason !== 'tool_use') {
           const text = (resp.content || [])
@@ -596,7 +721,11 @@ export default {
           if (block.type !== 'tool_use') continue;
           let result;
           try {
-            result = runQueryPlaysTool(block.input, queryPlays);
+            if (block.name === 'query_pff_defense') {
+              result = runPffDefenseTool(block.input, pffDefensePlays);
+            } else {
+              result = runQueryPlaysTool(block.input, queryPlays);
+            }
           } catch (e) {
             result = { error: String(e) };
           }
